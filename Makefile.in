@@ -42,22 +42,22 @@ LINK.o = $(CXX) $(LDFLAGS) $(DBG) -o $@
 COMPILE.cc = $(CXX) $(DEPFLAGS) $(CXXFLAGS) $(DBG) $(INC) -c -o $@
 POSTCOMPILE = @mv -f $(DEPDIR)/$*.Td $(DEPDIR)/$*.d && touch $@
 
-all: leanbwt
+all: consensible
 	@echo
 	@echo 'Compile successful. Type "sudo make install" to complete intall.'
 
 .PHONY: install
 install:
-	@mv -f leanbwt $(PREFIX)
+	@mv -f consensible $(PREFIX)
 	@make clean
 	@echo
-	@echo 'Install successful. Type "leanbwt -h" to see usage.'
+	@echo 'Install successful. Type "consensible -h" to see usage.'
 
 .PHONY: clean
 clean:
 	@$(RM) -r $(OBJDIR) $(DEPDIR)
 
-leanbwt: $(OBJS)
+consensible: $(OBJS)
 	$(LINK.o) $^
 
 $(OBJDIR)/%.o : %.cpp

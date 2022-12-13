@@ -2,7 +2,7 @@
  * Copyright (C) 2017 Glen T. Wilkins <glen.t.wilkins@gmail.com>
  * Written by Glen T. Wilkins
  * 
- * This file is part of the Locass software package <https://github.com/gtwilkins/Locass>
+ * This file is part of the consensible software package <https://github.com/gtwilkins/Consensible>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

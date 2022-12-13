@@ -2,14 +2,26 @@ INC=-Isrc -Isrc/commands -Isrc/index -Isrc/shared -Isrc/transform -Isrc/search
 VPATH=src:src/commands:src/index:src/shared:src/transform:src/search
 
 SRCS =  \
+	alignment.cpp \
+	assemble.cpp \
 	consensible.cpp \
+	consensus.cpp \
 	filenames.cpp \
 	index.cpp \
 	index_reader.cpp \
 	index_structs.cpp \
 	index_writer.cpp \
+	local_alignment.cpp \
+	match.cpp \
+	match_query.cpp \
 	parameters.cpp \
+	query_binary.cpp \
+	query_structs.cpp \
+	read.cpp \
+	result.cpp \
 	shared_functions.cpp \
+	shared_structs.cpp \
+	target.cpp \
 	timer.cpp \
 	transform.cpp \
 	transform_bwt.cpp \

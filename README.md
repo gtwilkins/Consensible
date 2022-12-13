@@ -20,4 +20,4 @@ Consensible can be installed with the following commands:
 	sudo make install
 
 ## Use
-consensible -h
+	consensible -h

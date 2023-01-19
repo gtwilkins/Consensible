@@ -24,17 +24,18 @@
 #include "types.h"
 #include "transform.h"
 #include "index_writer.h"
+#include "arguments.h"
 
 class Index
 {
 public:
-    Index( int argc, char** argv );
+    Index( Arguments& args );
     
+    void newTransform( PreprocessFiles* fns, vector<string>& infilenames, bool revComp );
     void newTransform( PreprocessFiles* fns, int minScore, ifstream &infile, bool revComp );
     void resumeTransform( PreprocessFiles* fns );
     
     void printUsage();
-private:
 };
 
 #endif /* PREPROCESS_H */

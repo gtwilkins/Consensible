@@ -1,9 +1,11 @@
 PREFIX = /usr/local/bin/
+DBG=-g
 INC=-Isrc -Isrc/commands -Isrc/index -Isrc/shared -Isrc/transform -Isrc/search
 VPATH=src:src/commands:src/index:src/shared:src/transform:src/search
 
 SRCS =  \
 	alignment.cpp \
+	arguments.cpp \
 	assemble.cpp \
 	consensible.cpp \
 	consensus.cpp \

@@ -33,13 +33,42 @@ class Consensus
         Match* node_;
         int coord_[2]/*of consensus*/, range_[2]/*of read*/;
     };
+    struct Bubble
+    {
+        string template_, consensus_;
+        int start_, len_;
+    };
+    struct Branch
+    {
+        string template_, consensus_;
+        int coord_, drxn_;
+    };
+    struct SNPs
+    {
+        struct SNP
+        {
+            vector< pair<Match*, int> > matches_;
+            string seq_;
+        };
+        string resolve( string base );
+        vector<SNP> snps_;
+        int start_, len_;
+    };
+    void addBranch( Match* match, int len, bool drxn );
+    void addMatch( Match* match );
+    void addMismatch( Match* match, int lGood, int rGood );
+    void resolveBranches();
+    void resolveBubbles();
     Target* tar_;
     int coord_[2];
-    string seq_;
+    string template_, consensus_;
     vector<ConMap> maps_;
+    vector<Bubble> bubble_;
+    vector<Branch> branch_[2];
+    vector<SNPs> snps_;
 public:
     Consensus( vector<Match*>& matches, Target* tar );
-    static vector<Consensus*> seed( Match* match, int i, unordered_set<Match*>& used );
+    void resolve();
 };
 
 

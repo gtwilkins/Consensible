@@ -28,113 +28,144 @@
 #include <fstream>
 #include <unistd.h>
 
-Index::Index( int argc, char** argv )
+Index::Index( Arguments& args )
 {
-    ifstream infile;
-    string prefix;
-    PreprocessFiles* fns = NULL;
-    bool isResume = false;
-    bool didInput = false;
-    bool doRevComp = true;
+    PreprocessFiles* fns = new PreprocessFiles( args.bwtPrefix_, args.reindex_ );
+    bool isComplete = false, canResume = false, isIndexed = false, doRevComp = true;
     int minScore = 0;
-    
-    for ( int i ( 2 ); i < argc; i++ )
+    fns->getState( isComplete, canResume, isIndexed );
+    if ( args.reindex_ || ( !canResume && !isComplete ) )
     {
-        if ( !strcmp( argv[i], "-h" ) )
-        {
-            printUsage();
-            exit( EXIT_SUCCESS );
-        }
-        else if ( !strcmp( argv[i], "-i" ) )
-        {
-            if ( didInput )
-            {
-                cerr << "Error: multiple inputs provided." << endl;
-                exit( EXIT_FAILURE );
-            }
-            didInput = true;
-            infile.open( argv[++i] );
-            if ( !infile.good() )
-            {
-                cerr << "Failed to open file: \"" << argv[i] << "\"" << endl;
-                exit( EXIT_FAILURE );
-            }
-        }
-        else if ( !strcmp( argv[i], "-p" ) )
-        {
-            if ( fns )
-            {
-                cerr << "Error: more than one output prefix provided." << endl;
-                exit( EXIT_FAILURE );
-            }
-            prefix = argv[++i];
-            if ( prefix[0] != '/' )
-            {
-                string curr = getcwd( NULL, 0 );
-                if ( !prefix.empty() && prefix[0] == '.' ) prefix = prefix.substr( 1 );
-                if ( !prefix.empty() && prefix[0] != '/' ) prefix = "/" + prefix;
-                if ( prefix.empty() || curr.empty() )
-                {
-                    cerr << "Invalid file prefix. Please use the absolute path." << endl;
-                }
-                prefix = curr + prefix;
-            }
-        }
-        else if ( !strcmp( argv[i], "-s" ) ) minScore = stoi( argv[++i] );
-        else if ( !strcmp( argv[i], "--resume" ) ) isResume = true;
-        else if ( !strcmp( argv[i], "--no-rev-comp" ) ) doRevComp = false;
-        else
-        {
-            cerr << "Unrecognised argument: \"" << argv[i] << "\"" << endl << endl;
-            printUsage();
-            exit( EXIT_FAILURE );
-        }
+        Transform::load( fns, args.inputs_, doRevComp );
+        IndexWriter idx( fns, 1024, 20000 );
     }
-    
-    if ( argc <= 2 )
+    else if ( canResume  )
     {
-        cerr << "Error: no arguements supplied, see usage:" << endl << endl;
-        printUsage();
-        exit( EXIT_FAILURE );
+        Transform::run( fns );
+        IndexWriter idx( fns, 1024, 20000 );
     }
-    
-    double preprocessStartTime = clock();
-    
-    if ( prefix.empty() )
+    else if ( !isIndexed  )
     {
-        cerr << "Error: no output prefix supplied." << endl;
-        exit( EXIT_FAILURE );
-    }
-    
-    fns = new PreprocessFiles( prefix, true );
-    
-    if ( isResume && didInput )
-    {
-        cerr << "Error: resume (--resume) and input (-i) are mutually exclusive arguments." << endl;
-        cerr << "If you wish to resume (--resume), simply specify the output prefix (-p) previously used." << endl;
-        exit( EXIT_FAILURE );
-    }
-    else if ( didInput )
-    {
-        newTransform( fns, minScore, infile, doRevComp );
-    }
-    else if ( isResume )
-    {
-        resumeTransform( fns );
+        IndexWriter idx( fns, 1024, 20000 );
     }
     else
     {
-        cerr << "Error: did not specify either an input (-i), or the resume flag (--resume)." << endl << endl;
-        printUsage();
-        exit( EXIT_FAILURE );
+        cout << "Index files already exist. Proceeding..." << endl << endl;
     }
     
-    cout << "Preprocessing step 3 of 3: indexing transformed data..." << endl;
-    IndexWriter idx( fns, 1024, 20000 );
+    delete fns;
     
-    cout << endl << "Preprocessing completed!" << endl;
-    cout << "Total time taken: " << getDuration( preprocessStartTime ) << endl;
+//    for ( int i ( 2 ); i < argc; i++ )
+//    {
+//        if ( !strcmp( argv[i], "-h" ) )
+//        {
+//            printUsage();
+//            exit( EXIT_SUCCESS );
+//        }
+//        else if ( !strcmp( argv[i], "-i" ) )
+//        {
+//            if ( didInput )
+//            {
+//                cerr << "Error: multiple inputs provided." << endl;
+//                exit( EXIT_FAILURE );
+//            }
+//            didInput = true;
+//            infile.open( argv[++i] );
+//            if ( !infile.good() )
+//            {
+//                cerr << "Failed to open file: \"" << argv[i] << "\"" << endl;
+//                exit( EXIT_FAILURE );
+//            }
+//        }
+//        else if ( !strcmp( argv[i], "-p" ) )
+//        {
+//            if ( fns )
+//            {
+//                cerr << "Error: more than one output prefix provided." << endl;
+//                exit( EXIT_FAILURE );
+//            }
+//            prefix = argv[++i];
+//            if ( prefix[0] != '/' )
+//            {
+//                string curr = getcwd( NULL, 0 );
+//                if ( !prefix.empty() && prefix[0] == '.' ) prefix = prefix.substr( 1 );
+//                if ( !prefix.empty() && prefix[0] != '/' ) prefix = "/" + prefix;
+//                if ( prefix.empty() || curr.empty() )
+//                {
+//                    cerr << "Invalid file prefix. Please use the absolute path." << endl;
+//                }
+//                prefix = curr + prefix;
+//            }
+//        }
+//        else if ( !strcmp( argv[i], "-s" ) ) minScore = stoi( argv[++i] );
+//        else if ( !strcmp( argv[i], "--resume" ) ) isResume = true;
+//        else if ( !strcmp( argv[i], "--no-rev-comp" ) ) doRevComp = false;
+//        else
+//        {
+//            cerr << "Unrecognised argument: \"" << argv[i] << "\"" << endl << endl;
+//            printUsage();
+//            exit( EXIT_FAILURE );
+//        }
+//    }
+    
+//    if ( argc <= 2 )
+//    {
+//        cerr << "Error: no arguements supplied, see usage:" << endl << endl;
+//        printUsage();
+//        exit( EXIT_FAILURE );
+//    }
+//    
+//    double preprocessStartTime = clock();
+//    
+//    if ( prefix.empty() )
+//    {
+//        cerr << "Error: no output prefix supplied." << endl;
+//        exit( EXIT_FAILURE );
+//    }
+//    
+//    fns = new PreprocessFiles( prefix, true );
+//    
+//    if ( isResume && didInput )
+//    {
+//        cerr << "Error: resume (--resume) and input (-i) are mutually exclusive arguments." << endl;
+//        cerr << "If you wish to resume (--resume), simply specify the output prefix (-p) previously used." << endl;
+//        exit( EXIT_FAILURE );
+//    }
+//    else if ( didInput )
+//    {
+//        newTransform( fns, minScore, infile, doRevComp );
+//    }
+//    else if ( isResume )
+//    {
+//        resumeTransform( fns );
+//    }
+//    else
+//    {
+//        cerr << "Error: did not specify either an input (-i), or the resume flag (--resume)." << endl << endl;
+//        printUsage();
+//        exit( EXIT_FAILURE );
+//    }
+//    
+//    cout << "Preprocessing step 3 of 3: indexing transformed data..." << endl;
+//    IndexWriter idx( fns, 1024, 20000 );
+//    
+//    cout << endl << "Preprocessing completed!" << endl;
+//    cout << "Total time taken: " << getDuration( preprocessStartTime ) << endl;
 }
+
+//void Index::newTransform( PreprocessFiles* fns, vector<string>& infilenames, bool revComp )
+//{
+//    if ( infilenames.size() > 6 )
+//    {
+//        cerr << "Error: Excessive input read file count of " << (int)infilenames.size() << ". Maximum supported is 6." << endl;
+//        exit( EXIT_FAILURE );
+//    }
+//    int minScore = 0;
+//    vector<ReadFile*> infiles;
+//    for ( string& ifn : infilenames ) infiles.push_back( new ReadFile( ifn, 0, minScore ) );
+//    Transform::load( fns, infiles, revComp );
+//    Transform::run( fns );
+//}
 
 void Index::newTransform( PreprocessFiles* fns, int minScore, ifstream &infile, bool revComp )
 {

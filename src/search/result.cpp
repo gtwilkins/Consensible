@@ -19,6 +19,7 @@
  */
 
 #include "result.h"
+#include "fstream"
 
 Result::~Result()
 {
@@ -44,5 +45,24 @@ Target* Result::addTarget( string header, string seq )
     Target* tar = new Target( header, seq );
     targets_.push_back( tar );
     return tar;
+}
+
+void Result::assemble( string& outPrefix )
+{
+    for ( Target* tar : targets_ )
+    {
+        tar->assemble();
+    }
+}
+
+void Result::outputFullAlign( string& outPrefix )
+{
+    for ( int i = 0; i < targets_.size(); i++ )
+    {
+        string ofn = outPrefix + "-fullalign" + ( targets_.size() > 1 ? "-" + to_string( i+1 ) : "" ) + ".fa";
+        ofstream ofs( ofn );
+        targets_[i]->print( ofs );
+        ofs.close();
+    }
 }
 

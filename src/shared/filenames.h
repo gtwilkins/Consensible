@@ -54,6 +54,7 @@ struct PreprocessFiles : public Filenames
     PreprocessFiles( string inPrefix, bool overwrite=false );
     
     void clean();
+    void getState( bool& isComplete, bool& canResume, bool& isIndexed );
     void setBinaryWrite( FILE* &outBin, FILE* &outBwt, FILE* &outEnd, FILE* (&outIns)[4], FILE* (&outIds)[4][5] );
     void setCycler( FILE* &inBwt, FILE* &outBwt, FILE* &inEnd, FILE* &outEnd, FILE* (&outIns)[4], FILE* (&outIds)[4][5], uint8_t cycle );
     void setCyclerIter( FILE* &inIns, FILE* (&inIds)[5], uint8_t cycle, uint8_t i );

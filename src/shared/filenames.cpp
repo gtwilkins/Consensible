@@ -156,14 +156,14 @@ PreprocessFiles::PreprocessFiles( string inPrefix, bool overwrite )
         }
     }
     
-    for ( string const &fn : { bwt, bin, ids, idx, mer } )
-    {
-        if ( ifstream( fn ) && !overwrite )
-        {
-            cerr << "Error: file \"" << fn << "\" already exists. Either remove it, rename it, or choose a different file prefix." << endl;
-            exit( EXIT_FAILURE );
-        }
-    }
+//    for ( string const &fn : { bwt, bin, ids, idx, mer } )
+//    {
+//        if ( ifstream( fn ) && !overwrite )
+//        {
+//            cerr << "Error: file \"" << fn << "\" already exists. Either remove it, rename it, or choose a different file prefix." << endl;
+//            exit( EXIT_FAILURE );
+//        }
+//    }
 }
 
 void PreprocessFiles::clean()
@@ -184,6 +184,55 @@ void PreprocessFiles::clean()
             }
         }
     }
+}
+
+void PreprocessFiles::getState( bool& isComplete, bool& canResume, bool& isIndexed )
+{
+    isComplete = canResume = false;
+    
+    FILE* fp = getReadPointer( bin, false, true );
+    if ( !fp ) return;
+    
+    uint8_t readLen = 0, cycle = 0;
+    uint32_t seqCount = 0;
+    uint64_t binId = 0, bwtId = 0, idsId = 0, idxId = 0;
+    
+    fseek( fp, 1, SEEK_SET );
+    fread( &binId, 8, 1, fp );
+    fread( &readLen, 1, 1, fp );
+    fread( &cycle, 1, 1, fp );
+    fseek( fp, 16, SEEK_SET );
+    fread( &seqCount, 4, 1, fp );
+    fclose( fp );
+    
+    if ( !readLen || !seqCount ) return;
+    if ( cycle == readLen+1 ) isComplete = true;
+    if ( cycle <= readLen ) canResume = true;
+    
+    if ( !isComplete ) return;
+    isComplete = false;
+    
+    if ( !( fp = getReadPointer( bwt, false, true ) ) ) return;
+    fseek( fp, 1, SEEK_SET );
+    fread( &bwtId, 8, 1, fp );
+    fclose( fp );
+    if ( bwtId != binId ) return;
+    
+    if ( !( fp = getReadPointer( ids, false, true ) ) ) return;
+    fseek( fp, 1, SEEK_SET );
+    fread( &idsId, 8, 1, fp );
+    fclose( fp );
+    if ( idsId != binId ) return;
+    
+    isComplete = true;
+    
+    if ( !( fp = getReadPointer( idx, false, true ) ) ) return;
+    fseek( fp, 1, SEEK_SET );
+    fread( &idxId, 8, 1, fp );
+    fclose( fp );
+    if ( idxId != binId ) return;
+    
+    isIndexed = true;
 }
 
 void PreprocessFiles::setBinaryWrite( FILE* &outBin, FILE* &outBwt, FILE* &outEnd, FILE* (&outIns)[4], FILE* (&outIds)[4][5] )

@@ -26,6 +26,8 @@
 #include "index.h"
 #include "shared_functions.h"
 #include "parameters.h"
+#include "arguments.h"
+#include "assemble.h"
 
 Parameters params;
 
@@ -55,14 +57,21 @@ int main( int argc, char** argv )
     
     if ( argc > 1 )
     {
-        if ( !strcmp( argv[1], "-h" ) || !strcmp( argv[1], "--help" ) || !strcmp( argv[1], "-help" ) )
+        Arguments arguments( argc, argv );
         {
-            printUsage();
+            Index idx( arguments );
         }
-        else if ( !strcmp( argv[1], "index" ) )
         {
-            Index( argc, argv );
+            Assemble ass( arguments );
         }
+//        if ( !strcmp( argv[1], "-h" ) || !strcmp( argv[1], "--help" ) || !strcmp( argv[1], "-help" ) )
+//        {
+//            printUsage();
+//        }
+//        else if ( !strcmp( argv[1], "index" ) )
+//        {
+//            Index( argc, argv );
+//        }
 //        else if ( !strcmp( argv[1], "match" ) )
 //        {
 //            Match( argc, argv );
@@ -79,11 +88,11 @@ int main( int argc, char** argv )
 //        {
 //            Test( argc, argv );
 //        }
-        else
-        {
-            cerr << "Unrecognised command: \"" << argv[1] << "\"" << endl << endl;
-            printUsage();
-        }
+//        else
+//        {
+//            cerr << "Unrecognised command: \"" << argv[1] << "\"" << endl << endl;
+//            printUsage();
+//        }
     }
     else
     {

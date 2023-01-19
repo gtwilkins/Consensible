@@ -75,8 +75,8 @@ void Target::assemble()
             overlapping.push_back( matches_[i+1] );
         }
         consensus.push_back( new Consensus( overlapping, this ) );
-        int x = 0;
     }
+    for ( Consensus* c : consensus ) c->resolve();
     assert( false );
 }
 
@@ -111,10 +111,4 @@ void Target::print( ofstream& ofs )
         }
         ofs << "\n";
     }
-    ofs.close();
-    assert( false );
-//    for ( int i = 0; i < matches_.size(); i++ )
-//    {
-//        
-//    }
 }

@@ -25,17 +25,16 @@
 #include "index_reader.h"
 #include "query_binary.h"
 #include "match_query.h"
+#include "arguments.h"
 
 class Assemble
 {
 public:
-    Assemble( int argc, char** argv );
+    Assemble( Arguments& args );
+    ~Assemble();
     
 private:
-    void match( string& q, string& header, ofstream* ofs, int errors );
-//    void output( string ofn, vector<MatchedQuery>& queries, bool exact, bool inexact );
     void printUsage();
-    void test( int tests, int errors );
     IndexReader* ir_;
     QueryBinaries* qb_;
 };

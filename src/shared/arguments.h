@@ -2,7 +2,7 @@
  * Copyright (C) 2017 Glen T. Wilkins <glen.t.wilkins@gmail.com>
  * Written by Glen T. Wilkins
  * 
- * This file is part of the LeanBWT software package <https://github.com/gtwilkins/LeanBWT>
+ * This file is part of the consensible software package <https://github.com/gtwilkins/Consensible>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,23 +18,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TRANSFORM_H
-#define TRANSFORM_H
+#ifndef ARGUMENTS_H
+#define ARGUMENTS_H
 
-#include "timer.h"
-#include "types.h"
-#include "transform_structs.h"
-#include "transform_binary.h"
-#include "transform_bwt.h"
+#include <vector>
+#include <string>
 
-class Transform 
+struct Arguments
 {
-public:
-    static void load( PreprocessFiles* fns, vector<string>& infilenames, bool revComp );
-    static void load( PreprocessFiles* fns, vector< vector<ReadFile*> >& libs, uint8_t pairedLibCount, bool revComp );
-    static void run( PreprocessFiles* fns );
-    
+    Arguments( int argc, char** argv );
+    std::vector<std::string> inputs_, queries_;
+    std::string bwtPrefix_, outPrefix_;
+    bool reindex_, cleanup_, help_;
+private:
+    void error( std::string msg );
 };
 
-#endif /* TRANSFORM_H */
+
+#endif /* ARGUMENTS_H */
 

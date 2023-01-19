@@ -28,6 +28,43 @@
 //#include <chrono>
 //#include <iomanip>
 
+void Transform::load( PreprocessFiles* fns, vector<string>& infilenames, bool revComp )
+{
+    int minScore = 0;
+    uint8_t readLen = 0, minLen = 25;
+    vector<ReadFile*> infiles;
+    for ( string& ifn : infilenames ) infiles.push_back( new ReadFile( ifn, 0, minScore ) );
+    for ( ReadFile* rf : infiles ) readLen = max( readLen, rf->readLen );
+    
+    cout << "    Read length set to " << to_string( readLen ) << "." << endl;
+    cout << "    Min length set to " << to_string( minLen ) << "." << endl;
+    
+    ReadId readCount = 0, discardCount = 0;
+    double readStartTime = clock();
+    
+    BinaryWriter* binWrite = new BinaryWriter( fns, 0, readLen, revComp );
+    
+    for ( ReadFile* rf : infiles )
+    {
+        ReadId thisReadCount = 0, thisDiscardCount = 0;
+        string read;
+        while ( rf->getNext( read ) )
+        {
+            if ( read.length() >= minLen ) binWrite->write( read );
+            else discardCount++;
+            thisReadCount++;
+        }
+        delete rf;
+        readCount += thisReadCount;
+        readCount += thisDiscardCount;
+        
+        cout << "    Found " << to_string( thisReadCount-discardCount ) << " useable reads in file, discarded " << to_string( discardCount ) << " short reads." << endl;
+    }
+    
+    binWrite->close();
+    delete binWrite;
+}
+
 void Transform::load( PreprocessFiles* fns, vector< vector<ReadFile*> >& libs, uint8_t pairedLibCount, bool revComp )
 {
     sort( libs.begin(), libs.end(), []( vector<ReadFile*> &a, vector<ReadFile*> &b ){

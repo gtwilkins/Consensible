@@ -35,6 +35,8 @@ public:
     ~Result();
     Target* addTarget( string header, string seq );
     void addMatch( Target* tar, ReadId id, string seq, int coord );
+    void assemble( string& outPrefix );
+    void outputFullAlign( string& outPrefix );
 };
 
 

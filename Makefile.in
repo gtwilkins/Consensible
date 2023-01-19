@@ -3,6 +3,7 @@ VPATH=src:src/commands:src/index:src/shared:src/transform:src/search
 
 SRCS =  \
 	alignment.cpp \
+	arguments.cpp \
 	assemble.cpp \
 	consensible.cpp \
 	consensus.cpp \

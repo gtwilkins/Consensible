@@ -18,57 +18,49 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef GLIN_CONSENSUS_H
-#define GLIN_CONSENSUS_H
+#ifndef CONSENSUS_H
+#define CONSENSUS_H
 
 #include "match.h"
+#include "consensus_kmers.h"
+#include "align_result.h"
+#include "bubble.h"
+#include "consensus_map.h"
 
 class Target;
 
-
 class Consensus
 {
-    struct ConMap
-    {
-        Match* node_;
-        int coord_[2]/*of consensus*/, range_[2]/*of read*/;
-    };
-    struct Bubble
-    {
-        string template_, consensus_;
-        int start_, len_;
-    };
     struct Branch
     {
         string template_, consensus_;
         int coord_, drxn_;
     };
-    struct SNPs
-    {
-        struct SNP
-        {
-            vector< pair<Match*, int> > matches_;
-            string seq_;
-        };
-        string resolve( string base );
-        vector<SNP> snps_;
-        int start_, len_;
-    };
-    void addBranch( Match* match, int len, bool drxn );
+    void addBranch( ConMap* cm, vector<pair<ConMap*, AlignResult>>& hits, bool drxn );
+    bool addBubble( Match* l, Match* r, AlignResult& result );
     void addMatch( Match* match );
+    void addMatch( Match* m, int blockStart, int blockLast, bool preexisting );
     void addMismatch( Match* match, int lGood, int rGood );
+    void addSNP( Match*, int start, int tarLen, string seq, int coord );
+    void foldEnds();
+    void mapKmers();
+    bool merge( Consensus* rhs, AlignResult& result, Match* l, Match* r );
     void resolveBranches();
     void resolveBubbles();
+    void setBranches();
+    void setBubbles();
     Target* tar_;
+    ConsensusKmers* kmers_;
     int coord_[2];
     string template_, consensus_;
-    vector<ConMap> maps_;
-    vector<Bubble> bubble_;
-    vector<Branch> branch_[2];
+    vector<ConMap*> maps_;
+    vector<Bubble*> bubble_, branch_[2];
     vector<SNPs> snps_;
 public:
     Consensus( vector<Match*>& matches, Target* tar );
-    void resolve();
+    ~Consensus();
+    string resolve();
+    static bool bridge( Consensus* lhs, Consensus* rhs );
 };
 
 

@@ -18,27 +18,24 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef GLIN_TARGET_H
-#define GLIN_TARGET_H
+#ifndef CONSENSUS_KMERS_H
+#define CONSENSUS_KMERS_H
 
-#include "types.h"
 #include "match.h"
-#include "read.h"
-#include "consensus.h"
 
-class Target
+struct Kmer
 {
-    vector<Match*> matches_;
-    
-    vector<pair<int,int>> getGaps();
-    void sortMatches();
-public:
-    Target( string header, string seq ): header_( header ), seq_( seq ){};
-    bool addMatch( MappedRead* read, int coord );
-    vector<Consensus*> assemble();
-    void print( ofstream& ofs );
-    string seq_, header_;
+    Kmer( Match* match ,int i ): coords_{ make_pair( match, i ) } {};
+    vector<pair<Match*,int>> coords_;
 };
 
-#endif /* GLIN_TARGET_H */
+struct ConsensusKmers
+{
+    void addMatch( Match* match, int range[2] );
+    Kmer* getEndKmer( uint16_t k, bool drxn );
+    Kmer* getKmer( uint16_t k );
+    unordered_map<uint16_t, Kmer> kmers_, ends_[2];
+};
+
+#endif /* CONSENSUS_KMERS_H */
 

@@ -62,7 +62,7 @@ void Target::sortMatches()
     });
 }
 
-void Target::assemble()
+vector<Consensus*> Target::assemble()
 {
     vector<Consensus*> consensus;
     for ( int i = 0; i < matches_.size(); i++ )
@@ -76,8 +76,12 @@ void Target::assemble()
         }
         consensus.push_back( new Consensus( overlapping, this ) );
     }
-    for ( Consensus* c : consensus ) c->resolve();
-    assert( false );
+    for ( int i = 0; i+1 < consensus.size(); i++ ) if ( Consensus::bridge( consensus[i], consensus[i+1] ) )
+    {
+        delete consensus[i+1];
+        consensus.erase( consensus.begin() + 1 + i-- );
+    }
+    return consensus;
 }
 
 void Target::print( ofstream& ofs )

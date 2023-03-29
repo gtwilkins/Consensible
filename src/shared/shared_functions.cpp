@@ -24,6 +24,19 @@
 #include <cassert>
 #include <string.h>
 
+vector<uint16_t> get8mers( string seq, int i, int end )
+{
+    uint16_t kmer = ( charToInt[seq[i]] << 14 ) + ( charToInt[seq[i+1]] << 12 ) + ( charToInt[seq[i+2]] << 10 ) + ( charToInt[seq[i+3]] << 8 )
+             + ( charToInt[seq[i+4]] << 6 ) + ( charToInt[seq[i+5]] << 4 ) + ( charToInt[seq[i+6]] << 2 ) + ( charToInt[seq[i+7]] );
+    vector<uint16_t> kmers = { kmer };
+    for ( int j = i+8; j < end; j++ )
+    {
+        kmer = ( kmer << 2 ) + charToInt[seq[j]];
+        kmers.push_back( kmer );
+    }
+    return kmers;
+}
+
 char getComp( char c )
 {
     if ( c == 'A' ) return 'T';

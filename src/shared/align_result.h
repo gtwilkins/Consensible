@@ -18,27 +18,25 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef GLIN_TARGET_H
-#define GLIN_TARGET_H
+#ifndef ALIGN_RESULT_H
+#define ALIGN_RESULT_H
 
 #include "types.h"
-#include "match.h"
-#include "read.h"
-#include "consensus.h"
 
-class Target
+struct SNPs;
+
+struct AlignResult
 {
-    vector<Match*> matches_;
-    
-    vector<pair<int,int>> getGaps();
-    void sortMatches();
-public:
-    Target( string header, string seq ): header_( header ), seq_( seq ){};
-    bool addMatch( MappedRead* read, int coord );
-    vector<Consensus*> assemble();
-    void print( ofstream& ofs );
-    string seq_, header_;
+    int getSeqLen( int i );
+    void trimFromEnd( int sIndex, int trimLen, bool drxn );
+    string s_[2];
+    int start_, len_, lIgnore[2], rIgnore[2], score_;
 };
 
-#endif /* GLIN_TARGET_H */
+struct SnpAlignResult : AlignResult
+{
+    vector< pair<SNPs*, int> > snps_;
+};
+
+#endif /* ALIGN_RESULT_H */
 

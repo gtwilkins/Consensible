@@ -24,6 +24,7 @@
 #include "types.h"
 #include <fstream>
 
+vector<uint16_t> get8mers( string seq, int i, int end );
 char getComp( char c );
 int getEndTrim( string &q, string trim, bool drxn );
 int getHomopolymerLen( string &s, bool drxn );

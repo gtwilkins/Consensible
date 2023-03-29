@@ -49,10 +49,20 @@ Target* Result::addTarget( string header, string seq )
 
 void Result::assemble( string& outPrefix )
 {
+    vector<Consensus*> consensus;
     for ( Target* tar : targets_ )
     {
-        tar->assemble();
+        for ( Consensus* c : tar->assemble() ) consensus.push_back( c );
     }
+    string ofn = outPrefix + "_consensus.fa";
+    ofstream ofs( ofn );
+    for ( int i = 0; i < consensus.size(); i++ )
+    {
+        string seq = consensus[i]->resolve();
+        ofs << ">consensus_" + to_string( i+1 ) + "\n";
+        ofs << seq + "\n";
+    }
+    ofs.close();
 }
 
 void Result::outputFullAlign( string& outPrefix )

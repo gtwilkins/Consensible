@@ -18,27 +18,24 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef GLIN_TARGET_H
-#define GLIN_TARGET_H
+#ifndef CONSENSUS_MAP_H
+#define CONSENSUS_MAP_H
 
 #include "types.h"
-#include "match.h"
-#include "read.h"
-#include "consensus.h"
+#include "align_result.h"
 
-class Target
+struct Match;
+
+struct ConMap
 {
-    vector<Match*> matches_;
-    
-    vector<pair<int,int>> getGaps();
-    void sortMatches();
-public:
-    Target( string header, string seq ): header_( header ), seq_( seq ){};
-    bool addMatch( MappedRead* read, int coord );
-    vector<Consensus*> assemble();
-    void print( ofstream& ofs );
-    string seq_, header_;
+    int excess( int d );
+    bool match( ConMap* cm, vector<pair<ConMap*, AlignResult>>& hits, int drxn );
+    void updateCoords( ConMap* donor, AlignResult& result, int dIndex, bool drxn );
+    void updateCoords( SnpAlignResult& result, bool drxn );
+    Match* node_;
+    int coord_[2]/*of consensus*/, range_[2],/*of read*/ mapped_[2]/*of read, includes bubbles etc.*/;
 };
 
-#endif /* GLIN_TARGET_H */
+
+#endif /* CONSENSUS_MAP_H */
 

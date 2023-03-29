@@ -22,19 +22,37 @@
 #define GLIN_ALIGNMENT_H
 
 #include "types.h"
+#include "bubble.h"
+#include "align_result.h"
+
+struct SNPs;
 
 class Alignment
 {
+    void score();
     void debug();
     bool isFreeStart( int i, int j );
-    void score();
+protected:
     string a_, b_;
-    vector< std::vector<int> > m_, p_;
+    vector< vector<int> > m_, p_;
     int hit_, miss_, gapOpen_, gapExt_, iMax_, jMax_;
     bool freeEnds_[2], scored_;
 public:
     Alignment( string& a, string& b, int aStart, int aLen, int bStart, int bLen );
-    pair<int,int> align( bool lAnchored, bool rAnchored );
+    AlignResult align( int hit, int miss, int gapOpen, int gapExt, bool lAnchored, bool rAnchored );
+    AlignResult align( bool lAnchored, bool rAnchored );
+    static AlignResult alignBySeed( string& a, string& b, int aStart, int bStart, int len );
+};
+
+class SnpAlignment : Alignment
+{
+    void score();
+    vector<SNPs*> snps_;
+    vector< vector< pair<int, int> > > snp_;
+    int coord_[2];
+public:
+    SnpAlignment( string& a, string& b, int aStart, int aLen, int bStart, int bLen, vector<SNPs*>& snps );
+    SnpAlignResult align( bool lAnchored, bool rAnchored );
 };
 
 

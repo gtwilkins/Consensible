@@ -22,6 +22,7 @@
 #define GLIN_MATCH_H
 
 #include "types.h"
+#include "align_result.h"
 
 class Target;
 struct MappedRead;
@@ -29,8 +30,15 @@ struct MappedRead;
 struct Match
 {
     Match( Target* tar, MappedRead* read, string t, string r, vector<pair<int,int>> &anchors, int tarCoord );
+    void anchorCoords( Match* match, vector< pair<int,int>>& coords );
     int getAnchor( int drxn );
     vector<pair<int,int>> getGaps();
+    static bool isBridge( Match* l, Match* r, AlignResult& result, int competingCons );
+    bool isInsert( int coord );
+    int size();
+    void updateCoord( int i, int coord );
+    void updateCoords( Match* match, vector<int> coords, int start );
+    void updateCoords( Match* match, vector< pair<int,int>>& lcoords, vector< pair<int,int>>& rcoords );
     Target* tar_;
     MappedRead* read_;
     vector<int> coords_;

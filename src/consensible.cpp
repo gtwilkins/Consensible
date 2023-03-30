@@ -37,19 +37,22 @@ void printUsage()
     cout << endl << "Usage:" << endl;
     cout << "\tconsensible [args]" << endl;
     cout << endl << "Arguments:" << endl;
-    cout << "\t-i\t(Optional) Input sequence file(s)." << endl;
-    cout << "\t-p\t(Required) Prefix for indexed sequence files. See notes for details." << endl;
+    cout << "\t-i\t(Optional) Input shotgun sequence file(s)." << endl;
+    cout << "\t-p\t(Required) Prefix for indexed shotgun sequence files. See notes for details." << endl;
     cout << "\t-q\t(Required) Query file containing one or more query sequences." << endl;
     cout << "\t-o\t(Optional) Output filename prefix." << endl;
+    cout << endl << "Example commands:" << endl;
+    cout << "\tconsensible -i /myinputs/project101_data.fa -p /mytempdata/project101 -q /myinput/interesting_gene.fa -o /myoutput/interesting_gene_result.fa" << endl;
+    cout << endl << "\tconsensible -p /mytempdata/project101 -q /myinput/interesting_gene.fa -o /myoutput/interesting_gene_result.fa" << endl;
+    cout << endl << "Explanation:" << endl;
+    cout << "\tConsensible searches for reads among shotgun sequencing data (-i) that match" << endl;
+    cout << "\tone or more query sequences (-q). It will then attempt to assmble overlapping" << endl;
+    cout << "\treads among the matches into one or more consensus sequences that are output" << endl;
+    cout << "\tas a fasta file (-o). However, consensible must first create an index of the" << endl;
+    cout << "\tshotgun sequencing data (-p)." << endl;
     cout << endl << "Notes:" << endl;
     cout << "\t- Accepted read file formats are fasta, fastq or a list of sequences, one per line." << endl;
-    cout << "\t- Input read libraries can be either paired or single." << endl;
-    cout << "\t- Each paired read library can be input as either two separated files or one interleaved file." << endl;
-    cout << "\t- Each line of the input text file is expected in one of the following forms:" << endl;
-    cout << "\t\tpaired [separated_pair_file_1] [separated_pair_file_2]" << endl;
-    cout << "\t\tpaired [interleaved_pair_file]" << endl;
-    cout << "\t\tsingle [unpaired_file]" << endl;
-    cout << "\t- At least one paired read library is required." << endl;
+    cout << "\t- Once shotgun sequencing data (-i) has been indexed, only the index prefix (-p) need be provided on subsequent queries (-q)." << endl;
 }
 
 int main( int argc, char** argv )
@@ -58,10 +61,13 @@ int main( int argc, char** argv )
     if ( argc > 1 )
     {
         Arguments arguments( argc, argv );
+        if ( arguments.help_)
+        {
+            printUsage();
+        }
+        else
         {
             Index idx( arguments );
-        }
-        {
             Assemble ass( arguments );
         }
 //        if ( !strcmp( argv[1], "-h" ) || !strcmp( argv[1], "--help" ) || !strcmp( argv[1], "-help" ) )

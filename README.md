@@ -27,7 +27,9 @@ When running consensible, input, output and temporary files must be specified wi
 * -o	Output filename prefix.
 
 An example command should look as follows:
+
 	consensible -i /myinputs/project101_data.fa -p /mytempdata/project101 -q /myinput/interesting_gene.fa -o /myoutput/interesting_gene_result.fa
 
 Note that when running successive queries on a dataset, it does not need to be re-indexed. Hence, only the prefix for the pre-existing index files need be supplied, and the raw input data can be omitted as follows:
+
 	consensible -p /mytempdata/project101 -q /myinput/another_interesting_gene.fa -o /myoutput/another_interesting_gene_result.fa

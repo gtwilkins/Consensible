@@ -9,6 +9,7 @@ SRCS =  \
 	arguments.cpp \
 	assemble.cpp \
 	bubble.cpp \
+	bubble_resolution.cpp \
 	consensible.cpp \
 	consensus.cpp \
 	consensus_kmers.cpp \

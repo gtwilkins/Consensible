@@ -42,6 +42,7 @@ class Consensus
     void addMatch( Match* m, int blockStart, int blockLast, bool preexisting );
     void addMismatch( Match* match, int lGood, int rGood );
     void addSNP( Match*, int start, int tarLen, string seq, int coord );
+    bool foldEnd( ConMap* cm, vector<Bubble*>* branches, bool force, bool drxn );
     void foldEnds();
     void mapKmers();
     bool merge( Consensus* rhs, AlignResult& result, Match* l, Match* r );
@@ -49,13 +50,14 @@ class Consensus
     void resolveBubbles();
     void setBranches();
     void setBubbles();
+    void updateMapped( ConMap* cm, SnpAlignResult& result, bool drxn );
     Target* tar_;
     ConsensusKmers* kmers_;
     int coord_[2];
     string template_, consensus_;
     vector<ConMap*> maps_;
     vector<Bubble*> bubble_, branch_[2];
-    vector<SNPs> snps_;
+    vector<SNPs*> snps_;
 public:
     Consensus( vector<Match*>& matches, Target* tar );
     ~Consensus();

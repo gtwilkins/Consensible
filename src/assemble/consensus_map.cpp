@@ -26,9 +26,27 @@
 #include <algorithm>
 #include <iostream>
 
-int ConMap::excess( int d )
+vector<ConMap*> ConMap::getFoldableEnds( vector<ConMap*>& maps, vector<pair<int,int>>& remapped, bool d )
+{
+    vector<ConMap*> ends;
+    for ( ConMap* cm : maps ) if ( cm->unmapped( d ) )
+    {
+        bool refold = false;
+        int limits[2]{ d ? cm->coord_[1] : cm->coord_[0]-cm->uncoorded( 0 )-10, d ? cm->coord_[1]+cm->uncoorded( 1 )+10 : cm->coord_[0] };
+        for ( pair<int,int> remap : remapped ) if ( remap.first < limits[1] && limits[0] < remap.second ) refold = true;
+        if ( refold ) ends.push_back( cm );
+    }
+    return ends;
+}
+
+int ConMap::unmapped( int d )
 {
     return d ? node_->coords_.size() - mapped_[1] - 1 : mapped_[0];
+}
+
+int ConMap::uncoorded( int d )
+{
+    return d ? node_->coords_.size() - range_[1] - 1 : range_[0];
 }
 
 bool ConMap::match( ConMap* cm, vector<pair<ConMap*, AlignResult>>& hits, int drxn )
@@ -45,6 +63,38 @@ bool ConMap::match( ConMap* cm, vector<pair<ConMap*, AlignResult>>& hits, int dr
         return true;
     }
     return false;
+}
+
+void ConMap::setFinalFoldCoords( int (&base)[2], int (&read)[2], bool drxn )
+{
+    for ( int i = drxn ? node_->coords_.size()-1 : 0; i >= 0 && i < node_->coords_.size() ; drxn ? i-- : i++ )
+    {
+        if ( drxn ? node_->coords_[i] <= base[0] : base[1] <= node_->coords_[i] )
+        {
+            if ( !drxn && i+1 < node_->coords_.size() && node_->coords_[i] == node_->coords_[i+1] ) continue;
+            assert( node_->coords_[i] == base[!drxn] );
+            base[!drxn] = node_->coords_[i];
+            read[!drxn] = i;
+            return;
+        }
+    }
+    assert( false );
+}
+
+void ConMap::unsetMappedEnd( int cutoff, vector<Bubble*>* bubbles, vector<SNPs*>* snps, bool drxn )
+{
+    if ( drxn ? min( mapped_[1], range_[1] ) < cutoff : cutoff <= max( mapped_[0], range_[0] ) ) return;
+    mapped_[drxn] = drxn ? min( mapped_[1], cutoff-1 ) : max( mapped_[0], cutoff );
+    range_[drxn] = drxn ? min( range_[1], cutoff-1 ) : max( range_[0], cutoff );
+    coord_[drxn] = node_->coords_[range_[drxn]];
+    if ( bubbles ) for ( Bubble* b : *bubbles ) for ( int i = 0; i < b->maps_.size(); i++ )
+    {
+        if ( b->maps_[i].map_ == this ) b->maps_.erase( b->maps_.begin() + i-- );
+    }
+    if ( snps ) for ( SNPs* ss : *snps ) for ( SNP& s : ss->snps_ ) for ( int i = 0; i < s.matches_.size(); i++ )
+    {
+        if ( s.matches_[i].first == this->node_ ) s.matches_.erase( s.matches_.begin() + i-- );
+    }
 }
 
 void ConMap::updateCoords( ConMap* donor, AlignResult& result, int dIndex, bool drxn )
@@ -112,4 +162,21 @@ void ConMap::updateCoords( SnpAlignResult& result, bool drxn )
         for ( int s : { 0, 1 } ) if ( result.s_[s][i] != '-' ) coord[s]++;
     }
     node_->anchors_[drxn] = drxn ? max( range_[1], node_->anchors_[1] ) : min( range_[0], node_->anchors_[0] );
+}
+
+void ConMap::updateCoord( int coord, int range )
+{
+    node_->coords_[range] = coord;
+    if ( range < range_[0] ) range_[0] = range;
+    if ( range_[1] < range ) range_[1] = range;
+    if ( coord < coord_[0] ) coord_[0] = coord;
+    if ( coord_[1] < coord ) coord_[1] = coord;
+    updateMapped( range );
+}
+
+void ConMap::updateMapped( int mapped )
+{
+    assert( mapped >= 0 && mapped < node_->size() );
+    if ( mapped < mapped_[0] ) mapped_[0] = mapped;
+    if ( mapped_[1] < mapped ) mapped_[1] = mapped;
 }

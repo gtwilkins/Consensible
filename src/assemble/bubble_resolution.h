@@ -18,39 +18,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef ALIGN_RESULT_H
-#define ALIGN_RESULT_H
+#ifndef BUBBLE_RESOLUTION_H
+#define BUBBLE_RESOLUTION_H
 
-#include "types.h"
+#include "bubble.h"
 
-struct SNPs;
-struct SNP;
-struct Bubble;
-
-struct AlignResult
+struct BubbleResolution
 {
-    AlignResult();
-    int getSeqLen( int i );
-    void trimFromEnd( int sIndex, int trimLen, bool drxn );
-    string s_[2];
-    int start_, len_, lIgnore[2], rIgnore[2], score_;
+    BubbleResolution( Bubble* b, string& base );
+    
 };
 
-struct SnpAlignResult : AlignResult
-{
-    struct BubbleAlignCoords
-    {
-        static void reverse( vector<BubbleAlignCoords>& bubbles, int base );
-        Bubble* bubble_;
-        SNPs* snps_;
-        SNP* snp_;
-        int start_, end_, coord_[2];
-        vector<BubbleAlignCoords> bubbles_;
-    };
-    void reverse();
-    vector<BubbleAlignCoords> bubbles_;
-    vector< pair<SNPs*, int> > snps_;
-};
-
-#endif /* ALIGN_RESULT_H */
+#endif /* BUBBLE_RESOLUTION_H */
 

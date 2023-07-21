@@ -31,9 +31,9 @@ class Index
 public:
     Index( Arguments& args );
     
-    void newTransform( PreprocessFiles* fns, vector<string>& infilenames, bool revComp );
-    void newTransform( PreprocessFiles* fns, int minScore, ifstream &infile, bool revComp );
-    void resumeTransform( PreprocessFiles* fns );
+//    void newTransform( PreprocessFiles* fns, vector<string>& infilenames, bool revComp );
+//    void newTransform( PreprocessFiles* fns, int minScore, ifstream &infile, bool revComp );
+//    void resumeTransform( PreprocessFiles* fns );
     
     void printUsage();
 };

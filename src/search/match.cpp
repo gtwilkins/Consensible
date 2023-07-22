@@ -25,57 +25,70 @@
 #include <cassert>
 #include <iostream>
 
-Match::Match( Target* tar, MappedRead* read, string t, string r, vector<pair<int,int>> &anchors, int tarCoord )
-: tar_( tar ), read_( read ), score_( 0 )
+Match::Match( Target* tar, MappedRead* read, AlignResult& ar, int tarCoord )
+: tar_( tar ), read_( read ), score_( ar.score_ )
 {
-    assert( t.size() == r.size() );
-    assert( !anchors.empty() );
-    anchors_[0] = anchors[0].first;
-    anchors_[1] = anchors.back().second;
-    for ( int i = 0; i < t.size(); i++ )
+    anchors_[0] = ar.lIgnore[1];
+    anchors_[1] = read->seq_.size() - ar.rIgnore[1] - 1;
+    for ( int i = 0; i < ar.s_[0].size(); i++ )
     {
-        if ( i == anchors[0].first ) anchors_[0] = coords_.size();
-        if ( i == anchors.back().second ) anchors_[1] = coords_.size();
-        if ( i >= anchors[0].first && i <= anchors.back().second ) score_ += t[i] == r[i] ? 1 : -2;
-        if ( r[i] != '-' ) coords_.push_back( tarCoord );
-        if ( t[i] != '-' ) tarCoord++;
+        if ( ar.s_[1][i] != '-' ) coords_.push_back( tarCoord );
+        if ( ar.s_[0][i] != '-' ) tarCoord++;
     }
-    assert( coords_.size() == read->seq_.size() );
     read_->matches_.push_back( this );
-    
-    int curI = 0, curLen = 0, curScore = 0;
-    int bestI = 0, bestLen = 0, bestScore = 0;
-    for ( int i = 0; i < coords_.size(); i++ )
-    {
-        int gap = i ? coords_[i]-1-coords_[i-1] : 0, match = read->seq_[i] == tar->seq_[coords_[i]] ? 1 : -4;
-        for ( ; i+1 < coords_.size() && coords_[i] == coords_[i+1]; i++ ) gap++;
-        int gapScore = ( gap ? -4 : 0 ) - ( gap * 4 ), matchScore = i && read->seq_[i] == read->seq_[i-1] ? min( 0, match ) : match;
-        
-        if ( curScore + gapScore < 0 )
-        {
-            curI = i;
-            curScore = curLen = 0;
-            gapScore = 0;
-        }
-        curScore += gapScore + matchScore;
-        curLen++;
-        
-        if ( curScore < 0 )
-        {
-            curI = i+1;
-            curScore = curLen = 0;
-        }
-        else if ( curScore == bestScore ? curLen > bestLen : curScore > bestScore )
-        {
-            bestI = curI;
-            bestScore = curScore;
-            bestLen = curLen;
-        }
-    }
-    assert( bestLen > 15 );
-    anchors_[0] = bestLen > 10 ? bestI : coords_.size();
-    anchors_[1] = bestLen > 10 ? bestI + bestLen - 1 : 0;
 }
+
+//Match::Match( Target* tar, MappedRead* read, string t, string r, vector<pair<int,int>> &anchors, int tarCoord )
+//: tar_( tar ), read_( read ), score_( 0 )
+//{
+//    assert( t.size() == r.size() );
+//    assert( !anchors.empty() );
+//    anchors_[0] = anchors[0].first;
+//    anchors_[1] = anchors.back().second;
+//    for ( int i = 0; i < t.size(); i++ )
+//    {
+//        if ( i == anchors[0].first ) anchors_[0] = coords_.size();
+//        if ( i == anchors.back().second ) anchors_[1] = coords_.size();
+//        if ( i >= anchors[0].first && i <= anchors.back().second ) score_ += t[i] == r[i] ? 1 : -2;
+//        if ( r[i] != '-' ) coords_.push_back( tarCoord );
+//        if ( t[i] != '-' ) tarCoord++;
+//    }
+//    assert( coords_.size() == read->seq_.size() );
+//    read_->matches_.push_back( this );
+//    
+//    int curI = 0, curLen = 0, curScore = 0;
+//    int bestI = 0, bestLen = 0, bestScore = 0;
+//    for ( int i = 0; i < coords_.size(); i++ )
+//    {
+//        int gap = i ? coords_[i]-1-coords_[i-1] : 0, match = read->seq_[i] == tar->seq_[coords_[i]] ? 1 : -4;
+//        for ( ; i+1 < coords_.size() && coords_[i] == coords_[i+1]; i++ ) gap++;
+//        int gapScore = ( gap ? -4 : 0 ) - ( gap * 4 ), matchScore = i && read->seq_[i] == read->seq_[i-1] ? min( 0, match ) : match;
+//        
+//        if ( curScore + gapScore < 0 )
+//        {
+//            curI = i;
+//            curScore = curLen = 0;
+//            gapScore = 0;
+//        }
+//        curScore += gapScore + matchScore;
+//        curLen++;
+//        
+//        if ( curScore < 0 )
+//        {
+//            curI = i+1;
+//            curScore = curLen = 0;
+//        }
+//        else if ( curScore == bestScore ? curLen > bestLen : curScore > bestScore )
+//        {
+//            bestI = curI;
+//            bestScore = curScore;
+//            bestLen = curLen;
+//        }
+//    }
+//    assert( bestLen > 15 );
+//    anchors_[0] = bestLen > 10 ? bestI : coords_.size();
+//    anchors_[1] = bestLen > 10 ? bestI + bestLen - 1 : 0;
+//}
 
 void Match::anchorCoords( Match* match, vector< pair<int,int>>& coords )
 {
@@ -91,7 +104,6 @@ void Match::anchorCoords( Match* match, vector< pair<int,int>>& coords )
         if ( ins ) while ( ++i < coords.size() && coords[i].second < 0 ) ins++;
         assert( !ins );
         if ( i >= coords.size() ) assert( false );
-        if ( coords_[coords[i].first] != match->coords_[coords[i].second] ) assert( false );
         if ( coords_[coords[i].first] != match->coords_[coords[i].second] ) changed = true;
         coords_[coords[i].first] = match->coords_[coords[i].second];
         if ( coords_[coords[i].first] < tlimits[0] ) tlimits[0] = coords_[coords[i].first];

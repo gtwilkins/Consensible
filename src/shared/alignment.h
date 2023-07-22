@@ -98,7 +98,7 @@ class SnpAlignment : Alignment
     SnpAlignment( BubbleAlign* wrapper, string& a, int coord );
 //    SnpAlignment( SnpAlignment* base, Bubble* bubble );
 //    SnpAlignment( SnpAlignment* base, SNPs* snps, int i );
-    SnpAlignResult alignOld( bool lAnchored, bool rAnchored );
+//    SnpAlignResult alignOld( bool lAnchored, bool rAnchored );
 //    bool build( SnpAlignment& result, AlignPointer*& ap, int& i, int& j );
 //    AlignPointer* build( SnpAlignResult& result, vector<BubbleAlign*> stack, int i, int& j );
     void add( SnpAlignResult& result, int i );
@@ -108,15 +108,15 @@ class SnpAlignment : Alignment
     AlignPointer getEnd();
 //    bool getStack( vector<BubbleAlign*>& stack, SnpAlignment* base );
     vector<BubbleAlign*> getStack( SnpAlignment* base );
-    void scoreOld();
+//    void scoreOld();
     void score();
     void score( vector<GapPointer>& iMax );
     void setBubble( BubbleAlign* ba, vector<GapPointer> iMax, int ii );
     void getBubble( BubbleAlign* ba, vector<GapPointer>& iMax, int i, int j, bool& matched );
     vector<SNPs*> snps_;
     vector< vector<AlignPointer> > s_;
-    vector< vector< pair<int, int> > > snp_;
-    vector< pair<Bubble*, SnpAlignment> > bubble_;
+//    vector< vector< pair<int, int> > > snp_;
+//    vector< pair<Bubble*, SnpAlignment> > bubble_;
     vector<BubbleAlign*> bubbles_;
     BubbleAlign* wrapper_;
     SnpAlignment* parent_;

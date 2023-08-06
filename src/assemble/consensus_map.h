@@ -28,10 +28,17 @@ struct Match;
 
 struct ConMap
 {
-    int excess( int d );
+    bool isConsensus( int start, int end );
+    static vector<ConMap*> getFoldableEnds( vector<ConMap*>& maps, vector<pair<int,int>>& remapped, bool d );
+    int unmapped( int d );
+    int uncoorded( int d );
     bool match( ConMap* cm, vector<pair<ConMap*, AlignResult>>& hits, int drxn );
+    void setFinalFoldCoords( int (&base)[2], int (&read)[2], bool drxn );
+    void unsetMappedEnd( int cutoff, vector<Bubble*>* bubbles, vector<SNPs*>* snps, bool drxn );
     void updateCoords( ConMap* donor, AlignResult& result, int dIndex, bool drxn );
     void updateCoords( SnpAlignResult& result, bool drxn );
+    void updateCoord( int coord, int range );
+    void updateMapped( int mapped );
     Match* node_;
     int coord_[2]/*of consensus*/, range_[2],/*of read*/ mapped_[2]/*of read, includes bubbles etc.*/;
 };

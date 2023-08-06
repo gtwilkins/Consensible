@@ -21,6 +21,13 @@
 #include "align_result.h"
 #include "bubble.h"
 #include <cassert>
+#include <algorithm>
+
+AlignResult::AlignResult()
+{
+    lIgnore[0] = lIgnore[1] = rIgnore[0] = rIgnore[1] = score_ = 0;
+    start_ = len_ = -1;
+}
 
 int AlignResult::getSeqLen( int i )
 {
@@ -43,4 +50,27 @@ void AlignResult::trimFromEnd( int sIndex, int trimLen, bool drxn )
     if ( drxn ) len_ = min( len_, (int)s_[0].size()-start_ );
     if ( !drxn && len > start_ ) len_ -= min( len_, len-start_ );
     if ( !drxn ) start_ = max( start_-len, 0 );
+}
+
+void SnpAlignResult::BubbleAlignCoords::reverse( vector<BubbleAlignCoords>& bubbles, int base )
+{
+    std::reverse( bubbles.begin(), bubbles.end() );
+    for ( BubbleAlignCoords& bc : bubbles )
+    {
+        int len = bc.end_ - bc.start_;
+        bc.start_ = base - bc.end_;
+        bc.end_ = bc.start_ + len;
+        BubbleAlignCoords::reverse( bc.bubbles_, base );
+    }
+}
+
+void SnpAlignResult::reverse()
+{
+    for ( int k : { 0, 1 } ) std::reverse( s_[k].begin(), s_[k].end() );
+    
+    if ( len_ < 0 ) len_ = s_[0].size();
+    start_ = s_[0].size() - len_;
+    for ( int k = 0; k < start_; k++ ) for ( int s : { 0, 1 } ) if ( s_[s][k] != '-' ) lIgnore[s]++;
+    
+    BubbleAlignCoords::reverse( bubbles_, s_[0].size() );
 }

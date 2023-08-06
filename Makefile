@@ -1,5 +1,4 @@
 PREFIX = /usr/local/bin/
-DBG=-g
 INC=-Isrc -Isrc/commands -Isrc/index -Isrc/shared -Isrc/transform -Isrc/search -Isrc/assemble
 VPATH=src:src/commands:src/index:src/shared:src/transform:src/search:src/assemble
 
@@ -13,6 +12,7 @@ SRCS =  \
 	consensus.cpp \
 	consensus_kmers.cpp \
 	consensus_map.cpp \
+	consensus_resolution.cpp \
 	filenames.cpp \
 	index.cpp \
 	index_reader.cpp \

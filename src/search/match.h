@@ -29,7 +29,8 @@ struct MappedRead;
 
 struct Match
 {
-    Match( Target* tar, MappedRead* read, string t, string r, vector<pair<int,int>> &anchors, int tarCoord );
+    Match( Target* tar, MappedRead* read, AlignResult& ar, int tarCoord );
+//    Match( Target* tar, MappedRead* read, string t, string r, vector<pair<int,int>> &anchors, int tarCoord );
     void anchorCoords( Match* match, vector< pair<int,int>>& coords );
     int getAnchor( int drxn );
     vector<pair<int,int>> getGaps();

@@ -34,12 +34,19 @@ bool Target::addMatch( MappedRead* read, int coord )
     string t = seq_.substr( startCoord, cutLen ), align[2];
     LocalAlignment la( t, read->seq_, true, false );
     la.realign( align[0], align[1], false );
-    vector<pair<int,int>> anchors = LocalAlignment::degapByAnchoring( align[0], align[1], true );
-    if ( anchors.empty() ) assert( false );
-    if ( anchors.empty() ) return false;
-    matches_.push_back( new Match( this, read, align[0], align[1], anchors, startCoord ) );
+    Alignment al( seq_, read->seq_, startCoord, cutLen, 0, read->seq_.size() );
+    AlignResult ar = al.align( 1, 4, 4, 4, false, false );
+    if ( ar.len_ < 15 ) assert( false );
+    if ( ar.len_ < 15 ) return false;
+    matches_.push_back( new Match( this, read, ar, startCoord ) );
     
     return true;
+//    vector<pair<int,int>> anchors = LocalAlignment::degapByAnchoring( align[0], align[1], true );
+//    if ( anchors.empty() ) assert( false );
+//    if ( anchors.empty() ) return false;
+//    matches_.push_back( new Match( this, read, align[0], align[1], anchors, startCoord ) );
+//    
+//    return true;
 }
 
 vector<pair<int, int>> Target::getGaps()

@@ -244,7 +244,7 @@ Index::Index( Arguments& args )
 //        exit( EXIT_FAILURE );
 //    }
 //}
-//
+
 //void Index::resumeTransform( PreprocessFiles* fns )
 //{
 //    cout << "Resuming preprocessing..." << endl << endl;

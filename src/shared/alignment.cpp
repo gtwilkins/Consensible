@@ -266,14 +266,14 @@ bool SnpAlignment::BubbleAlign::isThis( SnpAlignResult::BubbleAlignCoords& bac )
 }
 
 
-SnpAlignment::SnpAlignment( string& a, string& b, int aStart, int aLen, int bStart, int bLen, vector<SNPs*>& snps, vector<Bubble*>& bubbles )
+SnpAlignment::SnpAlignment( string& a, string& b, int aStart, int aLen, int bStart, int bLen, vector<SNPs*> snps, vector<Bubble*>& bubbles )
 : Alignment( a, b, aStart, aLen, bStart, bLen ), wrapper_( NULL ), s_( aLen+1, vector<AlignPointer>( bLen+1 ) ), snps_( snps ), parent_( NULL )
 {
     coord_[0] = aStart;
     coord_[1] = bStart;
     sort( snps_.begin(), snps_.end(), []( SNPs* a, SNPs* b ){ return a->start_+a->len_ < b->start_+b->len_; } );
     hit_ = 1;
-    miss_ = 3;
+    miss_ = 2;
     gapOpen_ = 3;
     gapExt_ = 3;
     for ( SNPs* s : snps ) for ( int i = 0; i < s->snps_.size(); i++ ) bubbles_.push_back( new BubbleAlign( this, s, i, coord_[0] ) );
@@ -620,7 +620,6 @@ void SnpAlignment::add( SnpAlignResult& result, int i )
 {
     if ( wrapper_ )
     {
-        vector<SnpAlignResult::BubbleAlignCoords*> coords;
         vector<BubbleAlign*> stack = getStack( NULL );
         vector<SnpAlignResult::BubbleAlignCoords>* cur = &result.bubbles_;
         for ( int k = stack.size(); k-- > 0; )
@@ -649,9 +648,19 @@ void SnpAlignment::fill( SnpAlignResult& result, int& i, int iEnd, bool deletion
     if ( ascending ) i = a_.size();
     if ( deletion )
     {
-        for ( BubbleAlign* ba : bubbles_ ) if ( ba->snp_ && ba->snp_->seq_.empty() )
+        for ( BubbleAlign* ba : bubbles_ ) if ( ba->snp_ && ba->snp_->seq_.empty() && iEnd <= ba->start_ && ba->end_ <= i )
         {
             assert( false );
+            while ( ba->end_ < i ) add( result, --i );
+            SnpAlignResult::BubbleAlignCoords bac;
+            bac.start_ = bac.end_ = result.s_[0].size();
+            bac.coord_[0] = ba->start_;
+            bac.coord_[1] = ba->end_;
+            bac.bubble_ = ba->bubble_;
+            bac.snps_ = ba->snps_;
+            bac.snp_ = ba->snp_;
+            result.bubbles_.push_back( bac );
+            break;
         }
     }
     while ( iEnd < i ) add( result, --i );

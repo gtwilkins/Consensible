@@ -39,11 +39,12 @@ class Consensus
     void addBranch( ConMap* cm, vector<pair<ConMap*, AlignResult>>& hits, bool drxn );
     bool addBubble( Match* l, Match* r, AlignResult& result );
     void addMatch( Match* match );
-    void addMatch( Match* m, int blockStart, int blockLast, bool preexisting );
-    void addMismatch( Match* match, int lGood, int rGood );
+    void addMatch( ConMap* cm, Match* m, int blockStart, int blockLast, bool preexisting );
+    void addMismatch( ConMap* cm, Match* match, int lGood, int rGood );
     void addSNP( Match*, int start, int tarLen, string seq, int coord );
     bool foldEnd( ConMap* cm, vector<Bubble*>* branches, bool force, bool drxn );
     void foldEnds();
+    ConMap* getConMap( Match* m );
     void mapKmers();
     bool merge( Consensus* rhs, AlignResult& result, Match* l, Match* r );
     void resolveBranches();

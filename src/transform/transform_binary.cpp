@@ -512,8 +512,8 @@ void BinaryWriter::write( string &read )
     {
         read = read.substr( 0, readLen );
         line[0] = readLen;
-        cerr << "Error: Unexpectedly long read of length " << to_string( line[0] ) << " given set length of " << to_string( readLen ) << "." << endl;
-        exit( EXIT_FAILURE );
+//        cerr << "Error: Unexpectedly long read of length " << to_string( line[0] ) << " given set length of " << to_string( readLen ) << "." << endl;
+//        exit( EXIT_FAILURE );
     }
     
     // Encode characters into 2 bits per byte

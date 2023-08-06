@@ -22,9 +22,24 @@
 #include "match.h"
 #include "read.h"
 #include "alignment.h"
+#include "target.h"
 #include <cassert>
 #include <algorithm>
 #include <iostream>
+
+bool ConMap::isConsensus( int start, int end )
+{
+    if ( start < coord_[0] || coord_[1] < end ) return false;
+    int i = range_[0], j = range_[1];
+    while ( i < j && node_->coords_[i] < start && !( i+1 < node_->coords_.size() && node_->coords_[i] == node_->coords_[i+1] ) ) i++;
+    if ( node_->coords_[i] != start ) return false;
+    while ( i < j && end < node_->coords_[j] ) j--;
+    if ( i == j ) return start == end && i && ( node_->coords_[i]-node_->coords_[i-1] == 1 );
+    if ( node_->coords_[j-1] != end-1 ) return false;
+    for ( int k = i+1; k < j; k++ ) if ( node_->coords_[k]-node_->coords_[k-1] != 1 ) return false;;
+    for ( int k = i; k < j; k++ ) if ( node_->read_->seq_[k] != node_->tar_->seq_[node_->coords_[k]] ) return false;
+    return true;
+}
 
 vector<ConMap*> ConMap::getFoldableEnds( vector<ConMap*>& maps, vector<pair<int,int>>& remapped, bool d )
 {
@@ -83,7 +98,7 @@ void ConMap::setFinalFoldCoords( int (&base)[2], int (&read)[2], bool drxn )
 
 void ConMap::unsetMappedEnd( int cutoff, vector<Bubble*>* bubbles, vector<SNPs*>* snps, bool drxn )
 {
-    if ( drxn ? min( mapped_[1], range_[1] ) < cutoff : cutoff <= max( mapped_[0], range_[0] ) ) return;
+    if ( drxn ? max( mapped_[1], range_[1] ) < cutoff : cutoff <= min( mapped_[0], range_[0] ) ) return;
     mapped_[drxn] = drxn ? min( mapped_[1], cutoff-1 ) : max( mapped_[0], cutoff );
     range_[drxn] = drxn ? min( range_[1], cutoff-1 ) : max( range_[0], cutoff );
     coord_[drxn] = node_->coords_[range_[drxn]];
@@ -135,34 +150,34 @@ void ConMap::updateCoords( ConMap* donor, AlignResult& result, int dIndex, bool 
     assert( result.len_ >= 0 );
 }
 
-void ConMap::updateCoords( SnpAlignResult& result, bool drxn )
-{
-    sort( result.snps_.begin(), result.snps_.end(), []( pair<SNPs*, int>& a, pair<SNPs*, int>& b ){ return a.first->start_ == b.first->start_ ? a.first->len_ < b.first->len_ : a.first->start_ < b.first->start_;} );
-    int iSnp = 0, coord[2]{ drxn ? coord_[1]+1 : coord_[0]-result.getSeqLen( 0 )+result.lIgnore[0], drxn ? range_[1]+1 : result.lIgnore[1] };
-    for ( int i = result.start_; i < result.start_ + result.len_; i++ )
-    {
-        assert( node_->coords_[coord[1]] == coord[0] );
-        node_->coords_[coord[1]] = coord[0];
-        mapped_[drxn] = drxn ? max( mapped_[1], coord[1] ) : min( mapped_[0], coord[1] );
-        if ( result.s_[0][i] == result.s_[1][i] )
-        {
-            coord_[drxn] = drxn ? max( coord_[1], coord[0] ) : min( coord_[0], coord[0] );
-            range_[drxn] = drxn ? max( range_[1], coord[1] ) : min( range_[0], coord[1] );
-        }
-        for ( ; iSnp < result.snps_.size() && result.snps_[iSnp].first->start_+result.snps_[iSnp].first->len_ <= coord[0]+(result.s_[0][i] != '-'?1:0); iSnp++ )
-        {
-            SNPs* snps = result.snps_[iSnp].first;
-            SNP* snp = &snps->snps_[result.snps_[iSnp].second];
-            assert( coord[0] == snps->start_ );
-            if ( !snps->len_ ) assert( result.s_[0][i] == '-' && result.s_[1][i] != '-' );
-            if ( snp->seq_.empty() ) assert( result.s_[0][i] != '-' && result.s_[1][i] == '-' );
-            if ( result.s_[1][i] != '-' ) assert( string( 1, result.s_[1][i] ) == snp->seq_ );
-            snps->addSnp( result.s_[1][i] == '-' ? "" : string( 1, result.s_[1][i] ), node_, coord[1] );
-        }
-        for ( int s : { 0, 1 } ) if ( result.s_[s][i] != '-' ) coord[s]++;
-    }
-    node_->anchors_[drxn] = drxn ? max( range_[1], node_->anchors_[1] ) : min( range_[0], node_->anchors_[0] );
-}
+//void ConMap::updateCoords( SnpAlignResult& result, bool drxn )
+//{
+//    sort( result.snps_.begin(), result.snps_.end(), []( pair<SNPs*, int>& a, pair<SNPs*, int>& b ){ return a.first->start_ == b.first->start_ ? a.first->len_ < b.first->len_ : a.first->start_ < b.first->start_;} );
+//    int iSnp = 0, coord[2]{ drxn ? coord_[1]+1 : coord_[0]-result.getSeqLen( 0 )+result.lIgnore[0], drxn ? range_[1]+1 : result.lIgnore[1] };
+//    for ( int i = result.start_; i < result.start_ + result.len_; i++ )
+//    {
+//        assert( node_->coords_[coord[1]] == coord[0] );
+//        node_->coords_[coord[1]] = coord[0];
+//        mapped_[drxn] = drxn ? max( mapped_[1], coord[1] ) : min( mapped_[0], coord[1] );
+//        if ( result.s_[0][i] == result.s_[1][i] )
+//        {
+//            coord_[drxn] = drxn ? max( coord_[1], coord[0] ) : min( coord_[0], coord[0] );
+//            range_[drxn] = drxn ? max( range_[1], coord[1] ) : min( range_[0], coord[1] );
+//        }
+//        for ( ; iSnp < result.snps_.size() && result.snps_[iSnp].first->start_+result.snps_[iSnp].first->len_ <= coord[0]+(result.s_[0][i] != '-'?1:0); iSnp++ )
+//        {
+//            SNPs* snps = result.snps_[iSnp].first;
+//            SNP* snp = &snps->snps_[result.snps_[iSnp].second];
+//            assert( coord[0] == snps->start_ );
+//            if ( !snps->len_ ) assert( result.s_[0][i] == '-' && result.s_[1][i] != '-' );
+//            if ( snp->seq_.empty() ) assert( result.s_[0][i] != '-' && result.s_[1][i] == '-' );
+//            if ( result.s_[1][i] != '-' ) assert( string( 1, result.s_[1][i] ) == snp->seq_ );
+//            snps->addSnp( result.s_[1][i] == '-' ? "" : string( 1, result.s_[1][i] ), node_, coord[1] );
+//        }
+//        for ( int s : { 0, 1 } ) if ( result.s_[s][i] != '-' ) coord[s]++;
+//    }
+//    node_->anchors_[drxn] = drxn ? max( range_[1], node_->anchors_[1] ) : min( range_[0], node_->anchors_[0] );
+//}
 
 void ConMap::updateCoord( int coord, int range )
 {

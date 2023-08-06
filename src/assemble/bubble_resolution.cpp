@@ -23,9 +23,8 @@
 #include <cassert>
 
 BubbleResolution::BubbleResolution( Bubble* b, string& base )
+: b_( b ), align_( SnpAlignment( b->template_, base, 0, b->template_.size(), b->start_, b->len_, vector<SNPs*>{}, b->bubs_ ).align( true, true ) )
 {
-    vector<SNPs*> snps;
-    SnpAlignment align( b->template_, base, 0, b->template_.size(), b->start_, b->len_, snps, b->bubs_ );
-    SnpAlignResult result = align.align( true, true );
-    assert( false );
+    start_ = b->start_;
+    len_ = b->len_;
 }

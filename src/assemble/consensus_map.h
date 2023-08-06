@@ -28,6 +28,7 @@ struct Match;
 
 struct ConMap
 {
+    bool isConsensus( int start, int end );
     static vector<ConMap*> getFoldableEnds( vector<ConMap*>& maps, vector<pair<int,int>>& remapped, bool d );
     int unmapped( int d );
     int uncoorded( int d );

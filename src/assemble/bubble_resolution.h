@@ -26,7 +26,9 @@
 struct BubbleResolution
 {
     BubbleResolution( Bubble* b, string& base );
-    
+    Bubble* b_;
+    SnpAlignResult align_;
+    int start_, len_;
 };
 
 #endif /* BUBBLE_RESOLUTION_H */

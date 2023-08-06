@@ -123,7 +123,7 @@ class SnpAlignment : Alignment
     pair<int,int> ijMax_;
     int coord_[2];
 public:
-    SnpAlignment( string& a, string& b, int aStart, int aLen, int bStart, int bLen, vector<SNPs*>& snps, vector<Bubble*>& bubbles );
+    SnpAlignment( string& a, string& b, int aStart, int aLen, int bStart, int bLen, vector<SNPs*> snps, vector<Bubble*>& bubbles );
     SnpAlignResult align( bool lAnchored, bool rAnchored );
 };
 

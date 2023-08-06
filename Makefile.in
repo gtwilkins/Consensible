@@ -7,11 +7,11 @@ SRCS =  \
 	arguments.cpp \
 	assemble.cpp \
 	bubble.cpp \
-	bubble_resolution.cpp \
 	consensible.cpp \
 	consensus.cpp \
 	consensus_kmers.cpp \
 	consensus_map.cpp \
+	consensus_resolution.cpp \
 	filenames.cpp \
 	index.cpp \
 	index_reader.cpp \

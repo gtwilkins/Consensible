@@ -49,7 +49,7 @@ struct SnpAlignResult : AlignResult
     };
     void reverse();
     vector<BubbleAlignCoords> bubbles_;
-    vector< pair<SNPs*, int> > snps_;
+//    vector< pair<SNPs*, int> > snps_;
 };
 
 #endif /* ALIGN_RESULT_H */

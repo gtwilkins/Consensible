@@ -20,6 +20,7 @@
 
 #include "result.h"
 #include "fstream"
+#include <iostream>
 
 Result::~Result()
 {
@@ -55,6 +56,16 @@ void Result::assemble( string& outPrefix )
         for ( Consensus* c : tar->assemble() ) consensus.push_back( c );
     }
     string ofn = outPrefix + "_consensus.fa";
+    size_t it = outPrefix.find_last_of( '.' );
+    if ( it != string::npos )
+    {
+        string excess = outPrefix.substr( it+1 );
+        if ( excess == "fasta" || excess == "fa" ) ofn = outPrefix;
+    }
+    
+    cout << endl << to_string( reads_.size() ) << " reads were found to match the query sequence." << endl;
+    cout << to_string( consensus.size() ) << " consensus sequences were assembled!" << endl;
+    cout << endl << "Writing results to: " << ofn << endl;
     ofstream ofs( ofn );
     for ( int i = 0; i < consensus.size(); i++ )
     {

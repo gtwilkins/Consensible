@@ -1,4 +1,5 @@
 PREFIX = /usr/local/bin/
+DBG =-g
 INC=-Isrc -Isrc/commands -Isrc/index -Isrc/shared -Isrc/transform -Isrc/search -Isrc/assemble
 VPATH=src:src/commands:src/index:src/shared:src/transform:src/search:src/assemble
 
@@ -26,6 +27,7 @@ SRCS =  \
 	query_structs.cpp \
 	read.cpp \
 	result.cpp \
+	sequence_file.cpp \
 	shared_functions.cpp \
 	shared_structs.cpp \
 	target.cpp \

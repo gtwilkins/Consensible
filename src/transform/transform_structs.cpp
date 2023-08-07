@@ -85,7 +85,7 @@ void ReadFile::setReadLen()
     size_t curr = fh.tellg();
     fh.seekg( 0 );
     int i = 0, j = 0;
-    while ( getline( fh, seq ) && !seq.empty() && i < 1000 )
+    while ( getline( fh, seq ) && !seq.empty() )
     {
         if ( !fileType || j == 1 )
         {

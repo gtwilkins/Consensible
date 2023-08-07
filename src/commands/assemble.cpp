@@ -23,6 +23,7 @@
 #include "match_query.h"
 #include "parameters.h"
 #include "timer.h"
+#include "sequence_file.h"
 #include "shared_functions.h"
 #include <ctime> 
 #include <iostream>
@@ -50,14 +51,22 @@ Assemble::Assemble( Arguments& args )
     Result result;
     for ( string& ifn : args.queries_ )
     {
-        ifstream ifs( ifn );
-        while ( getSeq( ifs, header, seq ) )
+        SequenceFile file( ifn );
+        InputSequence is;
+        while ( file.getSeq( is ) )
         {
-            Target* tar = result.addTarget( header, seq );
-            for ( Read r : MatchQuery( seq, ir_, errors ).yield( qb_ ) ) result.addMatch( tar, r.id_, r.seq_, r.coords_[0] );
+            Target* tar = result.addTarget( is.header_, is.seq_ );
+            for ( Read r : MatchQuery( is.seq_, ir_, errors ).yield( qb_ ) ) result.addMatch( tar, r.id_, r.seq_, r.coords_[0] );
             break;
         }
-        break;
+//        ifstream ifs( ifn );
+//        while ( getSeq( ifs, header, seq ) )
+//        {
+//            Target* tar = result.addTarget( header, seq );
+//            for ( Read r : MatchQuery( seq, ir_, errors ).yield( qb_ ) ) result.addMatch( tar, r.id_, r.seq_, r.coords_[0] );
+//            break;
+//        }
+//        break;
     }
     result.assemble( args.outPrefix_ );
 //    result.outputFullAlign( args.outPrefix_ );

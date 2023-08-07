@@ -51,7 +51,7 @@ Index::Index( Arguments& args )
     }
     else
     {
-        cout << "Index files already exist. Proceeding..." << endl << endl;
+        cout << "Index files already exist. Proceeding..." << endl;
     }
     
     delete fns;

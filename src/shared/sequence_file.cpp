@@ -72,6 +72,14 @@ bool SequenceFile::getSeq( InputSequence& seq )
 
 bool SequenceFile::isSequence( string &s )
 {
-    for ( char c : s )  if ( !strchr( "ACGTN", c ) ) return false;
+    for ( char& c : s )
+    {
+        if ( strchr( "Uut", c ) ) c = 'T';
+        else if ( c == 'a' ) c = 'A';
+        else if ( c == 'c' ) c = 'C';
+        else if ( c == 'g' ) c = 'G';
+        else if ( c == 'n' ) c = 'N';
+        else if ( !strchr( "ACGTN", c ) ) return false;
+    }
     return true;
 }

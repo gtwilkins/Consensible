@@ -51,7 +51,7 @@ class Consensus
     void resolveBubbles();
     void setBranches();
     void setBubbles();
-    void updateMapped( ConMap* cm, SnpAlignResult& result, bool drxn );
+    void updateMapped( ConMap* cm, SnpAlignResult& result, int base, bool drxn );
     Target* tar_;
     ConsensusKmers* kmers_;
     int coord_[2];

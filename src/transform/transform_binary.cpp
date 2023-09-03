@@ -383,13 +383,13 @@ BinaryWriter::~BinaryWriter()
 {
     delete binBuff;
     if ( libCount ) delete[] libCounts;
-    for ( int i ( 0 ); i < 4; i++ )
-    {
-        for ( int j ( 0 ); j < 4; j++ )
-        {
-            delete[] idsBuff[i][j];
-        }
-    }
+//    for ( int i ( 0 ); i < 4; i++ )
+//    {
+//        for ( int j ( 0 ); j < 4; j++ )
+//        {
+//            delete[] idsBuff[i][j];
+//        }
+//    }
 }
 
 void BinaryWriter::close()
@@ -484,11 +484,11 @@ void BinaryWriter::dumpBin()
     pBin = 0;
 }
 
-void BinaryWriter::dumpIds( uint8_t i, uint8_t j )
-{
-    fwrite( idsBuff[i][j], 4, pIds[i][j], ids[i][j] );
-    pIds[i][j] = 0;
-}
+//void BinaryWriter::dumpIds( uint8_t i, uint8_t j )
+//{
+//    fwrite( idsBuff[i][j], 4, pIds[i][j], ids[i][j] );
+//    pIds[i][j] = 0;
+//}
 
 void BinaryWriter::setNextLibrary()
 {
@@ -558,21 +558,21 @@ void BinaryWriter::writeEnd()
     fclose( ends );
 }
 
-void BinaryWriter::writeIds()
-{
-    for ( int i( 0 ); i < 4; i++ )
-    {
-        for ( int j( 0 ); j < 4; j++ )
-        {
-            dumpIds( i, j );
-            fclose( ids[i][j] );
-            ids[i][j] = fns->getReadPointer( fns->tmpIds[0][i][j], true );
-            fwrite( &idsCounts[i][j], 4, 1, ids[i][j] );
-            fclose( ids[i][j] );
-        }
-        fclose( ids[i][4] );
-    }
-}
+//void BinaryWriter::writeIds()
+//{
+//    for ( int i( 0 ); i < 4; i++ )
+//    {
+//        for ( int j( 0 ); j < 4; j++ )
+//        {
+//            dumpIds( i, j );
+//            fclose( ids[i][j] );
+//            ids[i][j] = fns->getReadPointer( fns->tmpIds[0][i][j], true );
+//            fwrite( &idsCounts[i][j], 4, 1, ids[i][j] );
+//            fclose( ids[i][j] );
+//        }
+//        fclose( ids[i][4] );
+//    }
+//}
 
 void BinaryWriter::writeIns()
 {

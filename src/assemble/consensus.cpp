@@ -77,173 +77,177 @@ void Consensus::addBranch( ConMap* cm, vector<pair<ConMap*, AlignResult>>& hits,
     branch_[drxn].push_back( bub );
 }
 
-bool Consensus::addBubble( Match* l, Match* r, AlignResult& result )
-{
-    ConMap* maps[2]{ NULL, NULL };
-    for ( ConMap* cm : maps_ ) if ( cm->node_ == l ) maps[0] = cm;
-    for ( ConMap* cm : maps_ ) if ( cm->node_ == r ) maps[1] = cm;
-    maps[0]->mapped_[1] = max( maps[0]->mapped_[1], (int)l->coords_.size()-1-result.rIgnore[0] );
-    maps[1]->mapped_[0] = max( maps[1]->mapped_[0], result.lIgnore[1] );
-    
-    int counts[2]{0}, pSeq = 0;
-    int excess[2]{ (int)l->coords_.size()-1-l->anchors_[1]-result.rIgnore[0], -result.lIgnore[1] };
-//    int bridgeEnds[2]{ (int)result.s_[0].size(), (int)result.s_[1].size() };
-    int bridgedCoord[2]{ (int)l->coords_.size(), (int)r->coords_.size() };
-//    int remapAnchors[2]{ max( l->anchors_[1], result.lIgnore[0]-1 ), min( r->anchors_[0], (int)r->coords_.size()-result.rIgnore[1] ) };
-    int anchors[2]{ l->anchors_[1], r->anchors_[0] };
-    int tarCoords[2]{ l->getAnchor( 1 ), r->getAnchor( 0 ) };
-    int gap = r->getAnchor( 0 ) - l->getAnchor( 1 ) - 1;
-    string bridge = "", tar = gap > 0 ? template_.substr( l->getAnchor( 1 )+1, gap ) : "";
-//    vector<int> remap[2];
-//    vector<int> bridgeCoords[2];
-    vector< pair<int,int> > remaps[2][2], bridgeCoords[2];
-    for ( int i = 0; i < result.s_[0].size(); i++ )
-    {
-        if ( !pSeq && ( ( result.s_[0] == result.s_[1] && excess[0] <= excess[1] ) || excess[0] <= 0 ) ) pSeq = 1;
-        if ( anchors[0] < counts[0] && counts[1] < anchors[1] )
-        {
-            for ( int d : { 0, 1 } ) if ( result.s_[d][i] != '-' && result.s_[pSeq][i] != '-' ) bridgeCoords[d].push_back( make_pair( counts[d], bridge.size() ) );
-            if ( result.s_[pSeq][i] != '-' ) bridge += result.s_[pSeq][i];
-//            for ( int d : { 0, 1 } ) bridgeCoords[d].push_back( result.s_[d][i] != '-' ? counts[d] : -1 );
-        }
-        
-        bool anchored[2]{ l->anchors_[0] <= counts[0] && counts[0] <= l->anchors_[1], r->anchors_[0] <= counts[1] && counts[1] <= r->anchors_[1] };
-        if ( result.start_ <= i && i < result.start_+result.len_ && l->anchors_[0] <= counts[0] && counts[1] <= r->anchors_[1] ) for ( int d : { 0, 1 } )
-        {
-            if ( !anchored[d] && result.s_[d][i] != '-' ) remaps[d][anchored[!d]].push_back( make_pair( counts[d], result.s_[!d][i] != '-' ? counts[!d] : -1 ) );
-        }
-//        if ( remapAnchors[0] < counts[0] && result.s_[0][i] != '-' && i < result.start_+result.len_ ) remap[0].push_back( counts[1] );
-//        if ( counts[1] < remapAnchors[1] && result.s_[1][i] != '-' && i >= result.start_ ) remap[1].push_back( counts[0] );
-        
-        if ( anchors[0] < counts[0] && result.s_[0][i] != '-' ) excess[0]--;
-        if ( counts[1] < anchors[1] && result.s_[1][i] != '-' ) excess[1]++;
-//        if ( counts[0] == anchors[0] && result.s_[0][i] != '-' ) bridgeEnds[0] = i;
-//        if ( counts[1] == anchors[1] && result.s_[1][i] != '-' ) bridgeEnds[1] = i;
-        if ( anchors[1] <= counts[1] && counts[0] < bridgedCoord[0] && result.s_[0][i] != '-' ) bridgedCoord[0] = counts[0];
-        if ( counts[0] <= anchors[0] && result.s_[1][i] != '-' ) bridgedCoord[1] = counts[1];
-        for ( int d : { 0, 1 } ) if ( result.s_[d][i] != '-' ) counts[d]++;
-    }
-    
-    assert( gap >= 0 || gap == bridgedCoord[1] - bridgedCoord[0] - 1 );
-    
-//    l->anchorCoords( r, remaps[0][1] );
-//    r->anchorCoords( l, remaps[1][1] );
-    
-//    l->updateCoords( r, remap[0], remapAnchors[0]+1 );
-//    r->updateCoords( l, remap[1], result.lIgnore[1] );
-    
-    Bubble* bub = new Bubble();
-    bub->template_ = bridge;
-    bub->start_ = tarCoords[0]+1;
-    bub->len_ = gap;
-    vector<int> bubbleCoords;
-    if ( !bridge.empty() )
-    {
-        AlignResult bridgeResult = Alignment( bridge, tar, 0, bridge.size(), 0, tar.size() ).align( true, true );
-        int tarCoord = bub->start_;
-        for ( int i = 0; i < bridgeResult.s_[0].size(); i++ )
-        {
-            if ( bridgeResult.s_[0][i] != '-' ) bubbleCoords.push_back( tarCoord );
-            if ( bridgeResult.s_[1][i] != '-' ) tarCoord++;
-        }
-    }
-    
-    Match* m[2]{ l, r };
-    for ( int d : { 0, 1 } ) for ( pair<int, int> coord : bridgeCoords[d] )
-    {
-        m[d]->coords_[coord.first] = coord.second < bubbleCoords.size() ? bubbleCoords[coord.second] : tarCoords[1];
-    }
-    for ( int d : { 0, 1 } ) m[d]->anchorCoords( m[!d], remaps[d][1] );
-    
-    bool bridged[2]{ bridgedCoord[0] < l->coords_.size(), bridgedCoord[1] < r->coords_.size() };
-    if ( bridged[0] ) addMatch( getConMap( l ), l, bridgedCoord[0], l->coords_.size()-1-result.rIgnore[0], true );
-    if ( bridged[1] ) addMatch( getConMap( r ), r, result.lIgnore[1], bridgedCoord[1], true );
-    if ( bridged[0] && bridged[1] && gap < 2 && gap >= 0 && bridgedCoord[0]-anchors[0] < 2 && anchors[1]-bridgedCoord[1] < 2  )
-    {
-        addMismatch( getConMap( l ), l, anchors[0], bridgedCoord[0] );
-        addMismatch( getConMap( r ), r, bridgedCoord[1], anchors[1] );
-        return true;
-    }
-    
-    bub->maps_.push_back( Bubble::BubbleMap( l, bridgeCoords[0], anchors[0], bridged[0] ? bridgedCoord[0] : -1 ) );
-    bub->maps_.push_back( Bubble::BubbleMap( r, bridgeCoords[1], bridged[1] ? bridgedCoord[1] : -1, anchors[1] ) );
-    bubble_.push_back( bub );
-    
-//    if ( !bridge.empty() )
-//    {
-//        Bubble::BubbleMap maps[2]{ Bubble::BubbleMap( l, anchors[0], bridged[0] ? bridgedCoord[0] : -1 ), Bubble::BubbleMap( r, anchors[1], bridged[1] ? bridgedCoord[1] : -1 )  };
-//        AlignResult bridgeResult = Alignment( bridge, tar, 0, bridge.size(), 0, tar.size() ).align( true, true );
-//        counts[0] = 0;
-//        counts[1] = tarCoords[0]+1;
-//        Match* m[2]{ l, r };
-//        for ( int i = 0; i < bridgeResult.s_[0].size(); i++ )
-//        {
-//            if ( bridgeResult.s_[0][i] != '-' )
-//            {
-//    //            for ( int d : { 0, 1 } ) if ( bridgeCoords[d][counts[0]] >= 0 ) assert( m[d]->coords_[bridgeCoords[d][counts[0]]] == counts[1] );
-//                for ( int d : { 0, 1 } ) if ( bridgeCoords[d][counts[0]] >= 0 )
-//                {
-//                    m[d]->coords_[bridgeCoords[d][counts[0]]] = counts[1];
-//                    
-//                }
-//                bub.template_ += bridgeResult.s_[0][i];
-//            }
-//            for ( int d : { 0, 1 } ) if ( bridgeResult.s_[d][i] != '-' ) counts[d]++;
-//        }
-//    }
-    int x = 0;
-    return true;
-    
-    
-//    int gap = r->getAnchor( 0 ) - l->getAnchor( 1 ) - 1,  coords[2]{0}, counts[2]{ 0 };
-//    int good[2][2]{ { l->anchors_[1], l->coords_.size() }, { -1, r->anchors_[0] } };
+//bool Consensus::addBubble( Match* l, Match* r, AlignResult& result )
+//{
+//    Bubble* test = new Bubble( result, getConMap( l ), getConMap( r ) );
+//    
+//    ConMap* maps[2]{ NULL, NULL };
+//    for ( ConMap* cm : maps_ ) if ( cm->node_ == l ) maps[0] = cm;
+//    for ( ConMap* cm : maps_ ) if ( cm->node_ == r ) maps[1] = cm;
+//    maps[0]->mapped_[1] = max( maps[0]->mapped_[1], (int)l->coords_.size()-1-result.rIgnore[0] );
+//    maps[1]->mapped_[0] = max( maps[1]->mapped_[0], result.lIgnore[1] );
+//    
+//    int counts[2]{0}, pSeq = 0;
+//    int excess[2]{ (int)l->coords_.size()-1-l->anchors_[1]-result.rIgnore[0], -result.lIgnore[1] };
+////    int bridgeEnds[2]{ (int)result.s_[0].size(), (int)result.s_[1].size() };
+//    int bridgedCoord[2]{ (int)l->coords_.size(), (int)r->coords_.size() };
+////    int remapAnchors[2]{ max( l->anchors_[1], result.lIgnore[0]-1 ), min( r->anchors_[0], (int)r->coords_.size()-result.rIgnore[1] ) };
+//    int anchors[2]{ l->anchors_[1], r->anchors_[0] };
+//    int tarCoords[2]{ l->getAnchor( 1 ), r->getAnchor( 0 ) };
+//    int gap = r->getAnchor( 0 ) - l->getAnchor( 1 ) - 1;
+//    string bridge = "", tar = gap > 0 ? template_.substr( l->getAnchor( 1 )+1, gap ) : "";
+////    vector<int> remap[2];
+////    vector<int> bridgeCoords[2];
+//    vector< pair<int,int> > remaps[2][2], bridgeCoords[2];
 //    for ( int i = 0; i < result.s_[0].size(); i++ )
 //    {
-//        if ( i >= result.start_ && i < result.start_+result.len_ )
+//        if ( !pSeq && ( ( result.s_[0] == result.s_[1] && excess[0] <= excess[1] ) || excess[0] <= 0 ) ) pSeq = 1;
+//        if ( anchors[0] < counts[0] && counts[1] < anchors[1] )
 //        {
-//            if ( counts[0] <= l->anchors_[1] && counts[1] < r->anchors_[0] )
-//            {
-//                assert( l->coords_[counts[0]] == r->coords_[counts[1]]);
-//            }
-//            if ( l->anchors_[1] < counts[0] && r->anchors_[0] <= counts[1] )
-//            {
-//                assert( l->coords_[counts[0]] == r->coords_[counts[1]]);
-//            }
+//            for ( int d : { 0, 1 } ) if ( result.s_[d][i] != '-' && result.s_[pSeq][i] != '-' ) bridgeCoords[d].push_back( make_pair( counts[d], bridge.size() ) );
+//            if ( result.s_[pSeq][i] != '-' ) bridge += result.s_[pSeq][i];
+////            for ( int d : { 0, 1 } ) bridgeCoords[d].push_back( result.s_[d][i] != '-' ? counts[d] : -1 );
 //        }
-////        if ( counts[0] == stops[0] && result.s_[0][i] != '-' ) coords[0] = i;
-////        if ( counts[1] == stops[1] && result.s_[1][i] != '-' ) coords[1] = i;
-//        if ( counts[0] == l->anchors_[1] && result.s_[0][i] != '-' ) good[1][0] = result.s_[1][i] != '-' ? counts[1] : counts[1]-1;
-//        if ( counts[1] == r->anchors_[0] && result.s_[1][i] != '-' ) good[0][1] = result.s_[0][i] != '-' ? counts[0] : counts[0]+1;
+//        
+//        bool anchored[2]{ l->anchors_[0] <= counts[0] && counts[0] <= l->anchors_[1], r->anchors_[0] <= counts[1] && counts[1] <= r->anchors_[1] };
+//        if ( result.start_ <= i && i < result.start_+result.len_ && l->anchors_[0] <= counts[0] && counts[1] <= r->anchors_[1] ) for ( int d : { 0, 1 } )
+//        {
+//            if ( !anchored[d] && result.s_[d][i] != '-' ) remaps[d][anchored[!d]].push_back( make_pair( counts[d], result.s_[!d][i] != '-' ? counts[!d] : -1 ) );
+//        }
+////        if ( remapAnchors[0] < counts[0] && result.s_[0][i] != '-' && i < result.start_+result.len_ ) remap[0].push_back( counts[1] );
+////        if ( counts[1] < remapAnchors[1] && result.s_[1][i] != '-' && i >= result.start_ ) remap[1].push_back( counts[0] );
+//        
+//        if ( anchors[0] < counts[0] && result.s_[0][i] != '-' ) excess[0]--;
+//        if ( counts[1] < anchors[1] && result.s_[1][i] != '-' ) excess[1]++;
+////        if ( counts[0] == anchors[0] && result.s_[0][i] != '-' ) bridgeEnds[0] = i;
+////        if ( counts[1] == anchors[1] && result.s_[1][i] != '-' ) bridgeEnds[1] = i;
+//        if ( anchors[1] <= counts[1] && counts[0] < bridgedCoord[0] && result.s_[0][i] != '-' ) bridgedCoord[0] = counts[0];
+//        if ( counts[0] <= anchors[0] && result.s_[1][i] != '-' ) bridgedCoord[1] = counts[1];
 //        for ( int d : { 0, 1 } ) if ( result.s_[d][i] != '-' ) counts[d]++;
 //    }
-////    addMismatch( l, good[0][0], good[0][1] );
-////    addMismatch( r, good[1][0], good[1][1] );
 //    
-//    string seq[2];
-//    for ( int i = coords[0]+1; i < coords[1]; i++ )
+//    assert( gap >= 0 || gap == bridgedCoord[1] - bridgedCoord[0] - 1 );
+//    assert( test->template_ == bridge );
+//    delete test;
+//    
+////    l->anchorCoords( r, remaps[0][1] );
+////    r->anchorCoords( l, remaps[1][1] );
+//    
+////    l->updateCoords( r, remap[0], remapAnchors[0]+1 );
+////    r->updateCoords( l, remap[1], result.lIgnore[1] );
+//    
+//    Bubble* bub = new Bubble();
+//    bub->template_ = bridge;
+//    bub->start_ = tarCoords[0]+1;
+//    bub->len_ = gap;
+//    vector<int> bubbleCoords;
+//    if ( !bridge.empty() )
 //    {
-//        if ( result.s_[0][i] != '-' ) seq[0] += result.s_[0][i];
-//        if ( result.s_[1][i] != '-' ) seq[1] += result.s_[1][i];
+//        AlignResult bridgeResult = Alignment( bridge, tar, 0, bridge.size(), 0, tar.size() ).align( true, true );
+//        int tarCoord = bub->start_;
+//        for ( int i = 0; i < bridgeResult.s_[0].size(); i++ )
+//        {
+//            if ( bridgeResult.s_[0][i] != '-' ) bubbleCoords.push_back( tarCoord );
+//            if ( bridgeResult.s_[1][i] != '-' ) tarCoord++;
+//        }
 //    }
-//    if ( max( seq[0].size(), seq[1].size() ) > 1 || gap > 1 )
+//    
+//    Match* m[2]{ l, r };
+//    for ( int d : { 0, 1 } ) for ( pair<int, int> coord : bridgeCoords[d] )
 //    {
-//        assert( false );
+//        m[d]->coords_[coord.first] = coord.second < bubbleCoords.size() ? bubbleCoords[coord.second] : tarCoords[1];
+//    }
+//    for ( int d : { 0, 1 } ) m[d]->anchorCoords( m[!d], remaps[d][1] );
+//    
+//    bool bridged[2]{ bridgedCoord[0] < l->coords_.size(), bridgedCoord[1] < r->coords_.size() };
+//    if ( bridged[0] ) addMatch( getConMap( l ), l, bridgedCoord[0], l->coords_.size()-1-result.rIgnore[0], true );
+//    if ( bridged[1] ) addMatch( getConMap( r ), r, result.lIgnore[1], bridgedCoord[1], true );
+//    if ( bridged[0] && bridged[1] && gap < 2 && gap >= 0 && bridgedCoord[0]-anchors[0] < 2 && anchors[1]-bridgedCoord[1] < 2  )
+//    {
+//        addMismatch( getConMap( l ), l, anchors[0], bridgedCoord[0] );
+//        addMismatch( getConMap( r ), r, bridgedCoord[1], anchors[1] );
 //        return true;
 //    }
 //    
-//    SNPs snps;
-//    snps.start_ = l->getAnchor( 1 )+1;
-//    snps.len_ = gap;
-//    snps.snps_.push_back( SNPs::SNP() );
-//    snps.snps_.back().seq_ = seq[0];
-//    snps.snps_.back().matches_.push_back( make_pair( l, stops[0]+1 ) );
-//    if ( seq[0] != seq[1] ) snps.snps_.push_back( SNPs::SNP() );
-//    snps.snps_.back().seq_ = seq[1];
-//    snps.snps_.back().matches_.push_back( make_pair( r, stops[1]-seq[1].size() ) );
-//    snps_.push_back( snps );
-//    assert( false );
-    return false;
-}
+//    bub->maps_.push_back( Bubble::BubbleMap( l, bridgeCoords[0], anchors[0], bridged[0] ? bridgedCoord[0] : -1 ) );
+//    bub->maps_.push_back( Bubble::BubbleMap( r, bridgeCoords[1], bridged[1] ? bridgedCoord[1] : -1, anchors[1] ) );
+//    bubble_.push_back( bub );
+//    
+////    if ( !bridge.empty() )
+////    {
+////        Bubble::BubbleMap maps[2]{ Bubble::BubbleMap( l, anchors[0], bridged[0] ? bridgedCoord[0] : -1 ), Bubble::BubbleMap( r, anchors[1], bridged[1] ? bridgedCoord[1] : -1 )  };
+////        AlignResult bridgeResult = Alignment( bridge, tar, 0, bridge.size(), 0, tar.size() ).align( true, true );
+////        counts[0] = 0;
+////        counts[1] = tarCoords[0]+1;
+////        Match* m[2]{ l, r };
+////        for ( int i = 0; i < bridgeResult.s_[0].size(); i++ )
+////        {
+////            if ( bridgeResult.s_[0][i] != '-' )
+////            {
+////    //            for ( int d : { 0, 1 } ) if ( bridgeCoords[d][counts[0]] >= 0 ) assert( m[d]->coords_[bridgeCoords[d][counts[0]]] == counts[1] );
+////                for ( int d : { 0, 1 } ) if ( bridgeCoords[d][counts[0]] >= 0 )
+////                {
+////                    m[d]->coords_[bridgeCoords[d][counts[0]]] = counts[1];
+////                    
+////                }
+////                bub.template_ += bridgeResult.s_[0][i];
+////            }
+////            for ( int d : { 0, 1 } ) if ( bridgeResult.s_[d][i] != '-' ) counts[d]++;
+////        }
+////    }
+//    int x = 0;
+//    return true;
+//    
+//    
+////    int gap = r->getAnchor( 0 ) - l->getAnchor( 1 ) - 1,  coords[2]{0}, counts[2]{ 0 };
+////    int good[2][2]{ { l->anchors_[1], l->coords_.size() }, { -1, r->anchors_[0] } };
+////    for ( int i = 0; i < result.s_[0].size(); i++ )
+////    {
+////        if ( i >= result.start_ && i < result.start_+result.len_ )
+////        {
+////            if ( counts[0] <= l->anchors_[1] && counts[1] < r->anchors_[0] )
+////            {
+////                assert( l->coords_[counts[0]] == r->coords_[counts[1]]);
+////            }
+////            if ( l->anchors_[1] < counts[0] && r->anchors_[0] <= counts[1] )
+////            {
+////                assert( l->coords_[counts[0]] == r->coords_[counts[1]]);
+////            }
+////        }
+//////        if ( counts[0] == stops[0] && result.s_[0][i] != '-' ) coords[0] = i;
+//////        if ( counts[1] == stops[1] && result.s_[1][i] != '-' ) coords[1] = i;
+////        if ( counts[0] == l->anchors_[1] && result.s_[0][i] != '-' ) good[1][0] = result.s_[1][i] != '-' ? counts[1] : counts[1]-1;
+////        if ( counts[1] == r->anchors_[0] && result.s_[1][i] != '-' ) good[0][1] = result.s_[0][i] != '-' ? counts[0] : counts[0]+1;
+////        for ( int d : { 0, 1 } ) if ( result.s_[d][i] != '-' ) counts[d]++;
+////    }
+//////    addMismatch( l, good[0][0], good[0][1] );
+//////    addMismatch( r, good[1][0], good[1][1] );
+////    
+////    string seq[2];
+////    for ( int i = coords[0]+1; i < coords[1]; i++ )
+////    {
+////        if ( result.s_[0][i] != '-' ) seq[0] += result.s_[0][i];
+////        if ( result.s_[1][i] != '-' ) seq[1] += result.s_[1][i];
+////    }
+////    if ( max( seq[0].size(), seq[1].size() ) > 1 || gap > 1 )
+////    {
+////        assert( false );
+////        return true;
+////    }
+////    
+////    SNPs snps;
+////    snps.start_ = l->getAnchor( 1 )+1;
+////    snps.len_ = gap;
+////    snps.snps_.push_back( SNPs::SNP() );
+////    snps.snps_.back().seq_ = seq[0];
+////    snps.snps_.back().matches_.push_back( make_pair( l, stops[0]+1 ) );
+////    if ( seq[0] != seq[1] ) snps.snps_.push_back( SNPs::SNP() );
+////    snps.snps_.back().seq_ = seq[1];
+////    snps.snps_.back().matches_.push_back( make_pair( r, stops[1]-seq[1].size() ) );
+////    snps_.push_back( snps );
+////    assert( false );
+//    return false;
+//}
 
 void Consensus::addMatch( Match* m )
 {
@@ -330,10 +334,6 @@ void Consensus::addMismatch( ConMap* cm, Match* match, int lGood, int rGood )
         }
         SNP snp;
         snp.seq_ = matchLen ? match->read_->seq_.substr( lGood+1, 1 ) : "";
-        if ( snp.seq_ == "" )
-        {
-            int x = 0;
-        }
         int j = 0;
         while ( j < snps_[i]->snps_.size() && snps_[i]->snps_[j].seq_ != snp.seq_ ) j++;
         if ( j == snps_[i]->snps_.size() ) snps_[i]->snps_.insert( snps_[i]->snps_.begin() + j, snp );
@@ -497,7 +497,7 @@ bool Consensus::foldEnd( ConMap* cm, vector<Bubble*>* branches, bool force, bool
     
     if ( !result.len_ ) return false;
     cm->unsetMappedEnd( read[!d], &bubbles, &snps, d );
-    updateMapped( cm, result, d );
+    updateMapped( cm, result, limits[0], d );
     return true;
 }
 
@@ -546,7 +546,6 @@ void Consensus::foldEnds()
         }
         
     }
-    int x = 0;
     
 //    unordered_map<ConMap*, AlignResult> aligns[2];
 //    if ( !snps_.empty() ) for ( int d : { 0, 1 } )
@@ -646,7 +645,26 @@ bool Consensus::merge( Consensus* rhs, AlignResult& result, Match* l, Match* r )
     rhs->snps_.clear();
     rhs->bubble_.clear();
     for ( int d : { 0, 1 } ) rhs->branch_[d].clear();
-    addBubble( l, r, result );
+    
+    Bubble* bridge = new Bubble( result, getConMap( l ), getConMap( r ) );
+    int coords[2]{ bridge->start_, bridge->start_+bridge->len_ };
+    vector<ConMap*> maps[2];
+    for ( ConMap* cm : maps_ )
+    {
+//        assert( coords[0] < cm->coord_[0] || cm->coord_[1] < coords[1] );
+        int d = coords[0]-cm->coord_[0] > cm->coord_[1]-coords[1];
+        int excess = cm->uncoorded( d ) ? cm->uncoorded( d ) + 5 : 0;
+        if ( d ? cm->coord_[1]+excess < coords[0] : coords[1] < cm->coord_[0]-excess ) continue;
+        if ( d ? coords[0] <= cm->coord_[1] : cm->coord_[0] < coords[1] ) cm->unsetMappedEnd( cm->getRange( coords[!d], d ), &bubble_, &snps_, d );
+        maps[!d].push_back( cm );
+    }
+    assert( !maps[0].empty() && !maps[1].empty() );
+    bubble_.push_back( bridge );
+    for ( int d : { 0, 1 } ) for ( ConMap* cm : maps[d] ) foldEnd( cm, NULL, true, !d );
+    
+    Bubble::test( bubble_ );
+//    addBubble( l, r, result );
+//    Bubble::test( bubble_ );
     return true;
 }
 
@@ -719,11 +737,14 @@ void Consensus::resolveBranches()
 
 string Consensus::resolve()
 {
+    Bubble::test( bubble_ );
     foldEnds();
+    Bubble::test( bubble_ );
 //    setBubbles();
     setBranches();
 //    resolveBranches();
     resolveBubbles();
+    Bubble::test( bubble_ );
     consensus_ = "";
     int coord = coord_[0];
     for ( ConsensusResolution cr : ConsensusResolution::resolve( branch_, bubble_, snps_, maps_ ) )
@@ -761,7 +782,6 @@ string Consensus::resolve()
 //    cout << template_.substr( coord_[0], coord_[1]-coord_[0] ) << endl;
 //    cout << ">Consensus_" << coord_[0] << endl;
 //    cout << consensus_ << endl;
-//    int x = 0;
     return consensus_;
 }
 
@@ -813,9 +833,8 @@ void Consensus::setBubbles()
     }
 }
 
-void Consensus::updateMapped( ConMap* cm, SnpAlignResult& result, bool drxn )
+void Consensus::updateMapped( ConMap* cm, SnpAlignResult& result, int base, bool drxn )
 {
-    int base = drxn ? cm->coord_[1]+1 : cm->coord_[0]-result.getSeqLen( 0 );
     int coord[2]{ base, drxn ? cm->range_[1]+1 : 0 };
     int badCoord[2]{ coord[0], coord[1] }, badLen = 0;
     string badStr = "";
@@ -862,6 +881,7 @@ void Consensus::updateMapped( ConMap* cm, SnpAlignResult& result, bool drxn )
     }
     if ( cm->coord_[0] < coord_[0] ) coord_[0] = cm->coord_[0];
     if ( coord_[1] < cm->coord_[1] ) coord_[1] = cm->coord_[1];
+    cm->sanitise();
 //    vector<int> starts;
 //    
 //    bool bubbled = false;

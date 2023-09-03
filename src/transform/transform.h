@@ -31,7 +31,6 @@ class Transform
 {
 public:
     static void load( PreprocessFiles* fns, vector<string>& infilenames, bool revComp );
-    static void load( PreprocessFiles* fns, vector< vector<ReadFile*> >& libs, uint8_t pairedLibCount, bool revComp );
     static void run( PreprocessFiles* fns );
     
 };

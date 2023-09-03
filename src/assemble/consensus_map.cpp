@@ -64,6 +64,16 @@ int ConMap::uncoorded( int d )
     return d ? node_->coords_.size() - range_[1] - 1 : range_[0];
 }
 
+int ConMap::getRange( int coord, bool roundUp )
+{
+    for ( int i = roundUp ? 0 : node_->size()-1; i >= 0 && i < node_->size(); roundUp ? i++ : i-- )
+    {
+        if ( roundUp && i+1 < node_->size() && node_->coords_[i+1] == node_->coords_[i] ) continue;
+        if ( roundUp ? coord <= node_->coords_[i] : node_->coords_[i] <= coord ) return i;
+    }
+    assert( false );
+}
+
 bool ConMap::match( ConMap* cm, vector<pair<ConMap*, AlignResult>>& hits, int drxn )
 {
     assert( drxn ? coord_[1] <= cm->coord_[1] : cm->coord_[0] <= cm->coord_[0] );
@@ -78,6 +88,12 @@ bool ConMap::match( ConMap* cm, vector<pair<ConMap*, AlignResult>>& hits, int dr
         return true;
     }
     return false;
+}
+
+void ConMap::sanitise()
+{
+    for ( int i = range_[0]; i-- > 0 && node_->coords_[i] >= node_->coords_[i+1]; ) node_->coords_[i] = node_->coords_[i+1]-1;
+    for ( int i = range_[1]+1; i < node_->size() && node_->coords_[i] <= node_->coords_[i-1]; i++ ) node_->coords_[i] = node_->coords_[i-1]+1;
 }
 
 void ConMap::setFinalFoldCoords( int (&base)[2], int (&read)[2], bool drxn )

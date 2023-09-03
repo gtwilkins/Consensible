@@ -27,10 +27,22 @@
 struct Arguments
 {
     Arguments( int argc, char** argv );
-    std::vector<std::string> inputs_, queries_;
-    std::string bwtPrefix_, outPrefix_;
-    bool reindex_, cleanup_, help_;
+    bool setBwtPrefix();
+    void updateFileIndex();
+    std::vector<std::string> inputs_, outputs_, queries_, input_;
+    std::string bwtPrefix_, workDir_, outFolder_, outPrefix_;
+    std::vector<std::pair<std::string, std::string>> fileIndex_;
+    int pInput_;
+    bool reindex_, cleanup_, help_, finished_;
 private:
+    void addInput( std::string fn );
+    void checkWorkingDir();
+    std::string getCode( int num );
+    std::vector<std::string> getFilenameParts( std::string filestr );
+    std::vector<std::string> getFilenames( std::string filestr );
+    void getFilenames( std::string filestr, std::vector<std::string>& parts, std::vector<std::string>& filenames, int i );
+    void setOutFolder( std::string folder );
+    void setOutputs();
     void error( std::string msg );
 };
 

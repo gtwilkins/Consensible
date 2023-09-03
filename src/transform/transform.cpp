@@ -30,6 +30,7 @@
 
 void Transform::load( PreprocessFiles* fns, vector<string>& infilenames, bool revComp )
 {
+    assert( infilenames.size() == 1 );
     int minScore = 0;
     uint8_t readLen = 0, minLen = 25;
     vector<ReadFile*> infiles;
@@ -62,125 +63,6 @@ void Transform::load( PreprocessFiles* fns, vector<string>& infilenames, bool re
     }
     
     binWrite->close();
-    delete binWrite;
-}
-
-void Transform::load( PreprocessFiles* fns, vector< vector<ReadFile*> >& libs, uint8_t pairedLibCount, bool revComp )
-{
-    sort( libs.begin(), libs.end(), []( vector<ReadFile*> &a, vector<ReadFile*> &b ){
-        return a.size() > b.size();
-    } );
-    
-    // Set base read length
-    uint8_t readLen = 0;
-    for ( vector<ReadFile*> &lib : libs )
-    {
-        for ( ReadFile* readFile : lib )
-        {
-            readLen = max( readLen, readFile->readLen );
-        }
-    }
-    uint8_t minLen = 25;
-    assert( readLen >= 50 && readLen <= 255 );
-    
-    cout << "    Read length set to " << to_string( readLen ) << "." << endl;
-    cout << "    Min length set to " << to_string( minLen ) << "." << endl;
-
-    ofstream tmpSingles = fns->getWriteStream( fns->tmpSingles );
-    ReadId readCount = 0, discardCount = 0;
-    uint8_t fileCount = 0;
-    double readStartTime = clock();
-//    auto t_start = std::chrono::high_resolution_clock::now();
-    
-    BinaryWriter* binWrite = new BinaryWriter( fns, pairedLibCount, readLen, revComp );
-    
-    // Write binary sequence file and first transform cycle
-    while ( !libs.empty() )
-    {
-        ReadId thisReadCount = 0;
-        
-        // Process paired libraries
-        if ( libs[0].size() == 2 )
-        {
-            string reads[2];
-            while ( libs[0][0]->getNext( reads[0] ) && libs[0][1]->getNext( reads[1] ) )
-            {
-                if ( reads[0].length() >= minLen && reads[1].length() >= minLen )
-                {
-                    binWrite->write( reads[0] );
-                    binWrite->write( reads[1] );
-                    thisReadCount += 2;
-                }
-                else
-                {
-                    discardCount += 2;
-                    if ( reads[0].length() >= minLen )
-                    {
-                        tmpSingles << reads[0] << '\n';
-                        --discardCount;
-                    }
-                    if ( reads[1].length() >= minLen )
-                    {
-                        tmpSingles << reads[1] << '\n';
-                        --discardCount;
-                    }
-                }
-            }
-            
-            binWrite->setNextLibrary();
-            
-            fileCount += libs[0][0] == libs[0][1] ? 1 : 2;
-            delete libs[0][0];
-            if ( libs[0][1] != libs[0][0] ) delete libs[0][1];
-            
-            if ( libs.size() == 1 || libs[1].size() == 1 )
-            {
-                fileCount += libs.size() - 1;
-                tmpSingles.close();
-                ReadFile* readFile = new ReadFile( fns->tmpSingles, readLen, 0 );
-                vector<ReadFile*> lib = { readFile };
-                libs.push_back( lib );
-            }
-            
-            cout << "\tRead " << to_string( thisReadCount ) << " paired reads from library" << endl;
-        }
-        
-        // Process singleton libraries
-        else if ( libs[0].size() == 1 )
-        {
-            string read;
-            while ( libs[0][0]->getNext( read ) )
-            {
-                if ( read.length() >= minLen )
-                {
-                    binWrite->write( read );
-                }
-                else
-                {
-                    discardCount++;
-                }
-                thisReadCount++;
-            }
-            delete libs[0][0];
-            
-            if ( thisReadCount )
-            {
-                cout << "\tRead " << to_string( thisReadCount ) << " single reads" << endl;
-            }
-        }
-        
-        libs.erase( libs.begin() );
-        readCount += thisReadCount;
-    }
-    binWrite->close();
-    
-    cout << endl << "Reading inputs files... completed!" << endl << endl;
-    cout << "Summary:" << endl;
-    cout << "Read in " << to_string( readCount ) << " sequence reads and discarded " << to_string( discardCount ) << endl;
-    cout << "Read from " << to_string( fileCount ) << " read files, including " << to_string( pairedLibCount ) << " paired libraries." << endl;
-    cout << "Time taken: " << getDuration( readStartTime );
-//    cout << "   " << std::fixed << std::setprecision(2) << ( clock() - readStartTime ) / CLOCKS_PER_SEC << " vs " << ( ( std::chrono::high_resolution_clock::now() - t_start ).count() / 1000.0 ) / CLOCKS_PER_SEC << endl << endl;
-    cout << endl << endl;
     delete binWrite;
 }
 

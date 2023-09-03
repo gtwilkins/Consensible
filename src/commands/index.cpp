@@ -36,7 +36,7 @@ Index::Index( Arguments& args )
     fns->getState( isComplete, canResume, isIndexed );
     if ( args.reindex_ || ( !canResume && !isComplete ) )
     {
-        Transform::load( fns, args.inputs_, doRevComp );
+        Transform::load( fns, args.input_, doRevComp );
         Transform::run( fns );
         IndexWriter idx( fns, 1024, 20000 );
     }

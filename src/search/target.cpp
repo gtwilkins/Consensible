@@ -71,6 +71,7 @@ void Target::sortMatches()
 
 vector<Consensus*> Target::assemble()
 {
+    sortMatches();
     vector<Consensus*> consensus;
     for ( int i = 0; i < matches_.size(); i++ )
     {

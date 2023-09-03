@@ -168,7 +168,6 @@ PreprocessFiles::PreprocessFiles( string inPrefix, bool overwrite )
 
 void PreprocessFiles::clean()
 {
-    removeFile( tmpSingles );
     removeFile( tmpChr );
     removeFile( tmpTrm );
     for ( int i( 0 ); i < 2; i++ )

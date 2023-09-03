@@ -71,6 +71,7 @@ class SnpAlignment : Alignment
             i_ = i;
             j_ = j;
             score_ = score;
+            deletion_ = false;
             return true;
         }
         bool update( SnpAlignment* align, int i, int j, int score )
@@ -80,6 +81,7 @@ class SnpAlignment : Alignment
         }
         SnpAlignment* align_;
         int i_, j_, score_;
+        bool deletion_;
     };
     struct BubbleAlign
     {
@@ -105,7 +107,7 @@ class SnpAlignment : Alignment
     void fill( SnpAlignResult& result, int& i, int iEnd, bool deletion, bool descending, bool ascending );
     vector<pair<SnpAlignment*, int>> findEnd();
     void finish( SnpAlignResult& result, AlignPointer& start );
-    AlignPointer getEnd();
+    AlignPointer getEnd( SnpAlignResult& result );
 //    bool getStack( vector<BubbleAlign*>& stack, SnpAlignment* base );
     vector<BubbleAlign*> getStack( SnpAlignment* base );
 //    void scoreOld();

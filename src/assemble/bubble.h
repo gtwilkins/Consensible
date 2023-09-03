@@ -104,6 +104,7 @@ struct Bubble
     Bubble( Bubble* base, BubbleAltPath& path, SnpAlignResult::BubbleAlignCoords& bac, int cut, bool drxn );
     Bubble( ConMap* cm, bool drxn );
     Bubble( AlignResult& result, ConMap* a, ConMap* b, bool drxn );
+    Bubble( AlignResult& result, ConMap* l, ConMap* r );
     ~Bubble();
     void abort();
     static void addBubble( vector<Bubble*>& bubbles, string seq, ConMap* cm, int baseCoord, int matchCoord, int len );
@@ -116,6 +117,7 @@ struct Bubble
     void cut( vector<Bubble*> cutStack, vector<Bubble*> keepStack, int cut, bool drxn );
 //    vector<Bubble::BubbleAltPath> getAlignableSeqs();
     string getConsensus();
+    void getMapRange( ConMap* cm, int& start, int& end );
 //    void getSeq( BubbleMap& map );
 //    vector<pair<string,vector<Bubble*>>> getAlignableSeqs();
     bool isClash( Bubble* b );
@@ -123,6 +125,7 @@ struct Bubble
     bool remove( ConMap* cm );
     int score( unordered_set<ConMap*>& maps );
     static void setRemapped( vector<pair<int,int>>& remapped, unordered_map<Bubble*,int>& oldBubbles, vector<Bubble*>& curBubbles );
+    static void test( vector<Bubble*>& bubs );
     vector<BubbleMap> maps_;
 //    vector<IntraBubble*> bubbles_;
     vector<Bubble*> bubs_;

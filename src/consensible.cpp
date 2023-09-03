@@ -67,8 +67,17 @@ int main( int argc, char** argv )
         }
         else
         {
-            Index idx( arguments );
-            Assemble ass( arguments );
+            int i = 0;
+            while ( arguments.setBwtPrefix() )
+            {
+//                if ( i >= 14 )
+//                {
+                    Index idx( arguments );
+                    arguments.updateFileIndex();
+                    Assemble ass( arguments );
+//                }
+                i++;
+            }
         }
 //        if ( !strcmp( argv[1], "-h" ) || !strcmp( argv[1], "--help" ) || !strcmp( argv[1], "-help" ) )
 //        {

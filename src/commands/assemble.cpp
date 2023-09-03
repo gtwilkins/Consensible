@@ -68,8 +68,8 @@ Assemble::Assemble( Arguments& args )
 //        }
 //        break;
     }
-    result.assemble( args.outPrefix_ );
 //    result.outputFullAlign( args.outPrefix_ );
+    result.assemble( args.outPrefix_ );
     delete fns;
 }
 

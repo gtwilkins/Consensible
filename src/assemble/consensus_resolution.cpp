@@ -36,7 +36,6 @@ void ConsensusResolution::branch( vector<Bubble*>& branches, vector<ConMap*>& ma
     if ( branched.empty() ) return;
     for ( int i = 0; i < resolves.size(); i++ ) if ( drxn ? branched[0].end_ < resolves[i].end_ : resolves[i].start_ < branched[0].start_ )
     {
-        assert( false );
         resolves.erase( resolves.begin() + i-- );
     }
     resolves.insert( drxn ? resolves.end() : resolves.begin(), branched[0] );

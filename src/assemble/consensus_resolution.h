@@ -28,7 +28,7 @@
 struct ConsensusResolution
 {
     ConsensusResolution( Bubble* b ): bub_( b ), snps_( NULL ), start_( b->start_), end_( b->start_+b->len_ ), score_( b->score_ ){};
-    ConsensusResolution( SNPs* snps ): bub_( NULL ), snps_( snps ), start_( snps->start_), end_( snps->start_+snps->len_ ){};
+    ConsensusResolution( SNPs* snps ): bub_( NULL ), snps_( snps ), start_( snps->start_), end_( snps->start_+snps->len_ ), score_( snps->score_ ){};
     static void branch( vector<Bubble*>& branches, vector<ConMap*>& map, vector<ConsensusResolution>& resolves, bool drxn );
     static vector<ConsensusResolution> create( vector<Bubble*>& bubs, vector<SNPs*>& snps, vector<ConMap*>& maps );
     string getConsensus();

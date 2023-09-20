@@ -25,6 +25,7 @@
 #include <cassert>
 #include <algorithm>
 #include <limits>
+#include <iostream>
 
 void SNPs::addSnp( vector<SNPs*>& snps, string seq, ConMap* cm, int baseCoord, int matchCoord, int len )
 {
@@ -55,6 +56,7 @@ void SNPs::addSnp( string seq, Match* m, int coord )
 
 void SNPs::addMatch( SnpAlignResult& result, SnpAlignResult::BubbleAlignCoords& bac, ConMap* cm, int& i, int& read )
 {
+    bool finished = read == cm->node_->size();
     assert( bac.snp_->seq_.empty() || result.s_[0][i] == result.s_[1][i] || !len_ );
     int len = bac.snp_->seq_.size();
     if ( !bac.snp_->seq_.empty() && result.s_[0][i] != result.s_[1][i] )
@@ -62,9 +64,9 @@ void SNPs::addMatch( SnpAlignResult& result, SnpAlignResult::BubbleAlignCoords& 
         string seq = result.s_[1].substr( i, bac.end_-bac.start_ );
         len = seq.size();
         assert( seq.size() == 1 && seq != "-" );
-        addSnp( seq, cm->node_, read );
+        if ( !finished ) addSnp( seq, cm->node_, read );
     }
-    else
+    else if ( !finished )
     {
         for ( pair<Match*, int>& match : bac.snp_->matches_ ) assert( match.first != cm->node_ );
         bac.snp_->matches_.push_back( make_pair( cm->node_, read ) );
@@ -141,6 +143,28 @@ void Bubble::BubbleMap::addCoord( int match, int bubble )
     coords_.back().len_ = 1;
 }
 
+void Bubble::BubbleMap::addCoord( int match, int bubble, int len )
+{
+    int i = 0;
+    for ( ; i < coords_.size(); i++ )
+    {
+        if ( coords_[i].bubble_ == bubble+len && coords_[i].match_ == match+len )
+        {
+            len += coords_[i].len_;
+            coords_.erase( coords_.begin() + i );
+            addCoord( match, bubble, len );
+            return;
+        }
+        if ( coords_[i].bubble_ + coords_[i].len_ == bubble && coords_[i].match_ + coords_[i].len_ == match )
+        {
+            coords_[i].len_ += len;
+            return;
+        }
+        if ( bubble < coords_[i].bubble_ ) break;
+    }
+    coords_.insert( coords_.begin() + i, BubbleCoord( bubble, match, len ) );
+}
+
 Bubble::BubbleMapDetails::BubbleMapDetails( Bubble* bub, BubbleMap& map )
 : map_( map.map_ )
 {
@@ -154,7 +178,7 @@ Bubble::BubbleMapDetails::BubbleMapDetails( Bubble* bub, BubbleMap& map )
 //    end_ = coords[1]->match_ + coords[1]->len_;
     off_ = 0;
     bool complete[2]{ !map.anchors_[0], map.anchors_[1] == bub->template_.size() };
-    if ( bub->type_ == 2 ) assert( complete[0] && complete[1] );
+//    if ( bub->type_ == 2 ) assert( complete[0] && complete[1] );
     if ( bub->type_ == 1 ) assert( complete[0] );
     if ( bub->type_ == 0 ) assert( complete[1] );
     if ( complete[0] && complete[1] ) type_ = 2;
@@ -177,9 +201,15 @@ bool Bubble::BubbleAltPath::add( BubbleMapDetails& map )
     bool added = map.seq_ == seq_;
     if ( !added && map.type_ != 2 )
     {
-        size_t l = seq_.find_first_of( map.seq_ ), r = seq_.find_last_of( map.seq_ );
-        if ( map.type_ == 1 && map_[0].type_ != 0 && l != string::npos && l == 0 ) added = true;
-        if ( map.type_ == 0 && map_[0].type_ != 1 && r != string::npos && r == seq_.size()-map.seq_.size() ) added = true;
+        size_t l = seq_.find( map.seq_ ), r = seq_.rfind( map.seq_ );
+        if ( map.type_ == 1 && type_ != 0 && l != string::npos && l == 0 )
+        {
+            added = true;
+        }
+        if ( map.type_ == 0 && type_ != 1 && r != string::npos && r == seq_.size()-map.seq_.size() )
+        {
+            added = true;
+        }
     }
     if ( !added ) return false;
     map.off_ = !map.type_ ? seq_.size()-map.seq_.size() : 0;
@@ -208,17 +238,58 @@ void Bubble::BubbleAltPath::assign( int* coords )
     assert( cut_[0] >= 0 && cut_[1] >= 0 );
 }
 
+bool Bubble::BubbleAltPath::bridge( Bubble* b, BubbleAltPath& rhs, vector<BubbleAltPath>& paths )
+{
+    for ( int i = 0; i < map_.size(); i++ ) for ( int j = 0; j < rhs.map_.size(); j++ )
+    {
+        BubbleMapDetails* l = &map_[i],* r = &rhs.map_[j];
+        int off;
+        if ( !b->getOffset( l->map_, r->map_, off ) ) continue;
+        off -= l->start_;
+        int len = 0, miss = 0;
+        for ( int i = 0; i+off < l->seq_.size() && i < r->seq_.size(); i++ )
+        {
+            if ( l->seq_[i+off] != r->seq_[i] ) miss++;
+            len++;
+        }
+        assert( len && !miss );
+        BubbleAltPath path( *l );
+        path.seq_ += r->seq_.substr( len );
+        path.type_ = 2;
+        bool dupe = false;
+        for ( BubbleAltPath& alt : paths ) if ( alt.seq_ == path.seq_ ) dupe = true;
+        if ( dupe ) continue;
+        while ( ++i < map_.size() ) assert( path.add( map_[i] ) );
+        while ( j < rhs.map_.size() ) assert( path.add( rhs.map_[j++] ) );
+        paths.push_back( path );
+        return true;
+    }
+    return false;
+}
+
 vector<Bubble::BubbleAltPath> Bubble::BubbleAltPath::build( Bubble* b )
 {
     vector<BubbleMapDetails> maps;
     for ( BubbleMap& bm : b->maps_ ) maps.push_back( BubbleMapDetails( b, bm ) );
     sort( maps.begin(), maps.end(), []( BubbleMapDetails& a, BubbleMapDetails& b ){ return a.seq_.size() > b.seq_.size(); } );
     vector<BubbleAltPath> paths;
+    vector<pair<BubbleAltPath, bool>> branch[2];
     for ( BubbleMapDetails& bmd : maps )
     {
         bool added = false;
         for ( BubbleAltPath& path : paths ) if ( path.add( bmd ) ) added = true;
         if ( !added ) paths.push_back( BubbleAltPath( bmd ) );
+    }
+    for ( int i = 0; i < paths.size(); i++ ) if ( paths[i].type_ != 2 )
+    {
+        branch[paths[i].type_].push_back( make_pair( paths[i], false ) );
+        paths.erase( paths.begin() + i-- );
+    }
+    
+    for ( pair<BubbleAltPath, bool>& l : branch[1] ) for ( pair<BubbleAltPath, bool>& r : branch[0] )
+    {
+        if ( r.second && l.second ) continue;
+        if ( l.first.bridge( b, r.first, paths ) ) l.second = r.second = true;
     }
     return paths;
 }
@@ -242,9 +313,21 @@ void Bubble::BubbleAltPath::remap( SnpAlignResult::BubbleAlignCoords& bac, int& 
     if ( bac.snps_ )
     {
         string seq = result_.s_[1][bac.start_] == '-' ? "" : string( 1, result_.s_[1][bac.start_] );
-        for ( BubbleMapDetails& map : map_ ) if ( map.off_ <= coord && coord+seq.size() <= map.seq_.size() ) bac.snps_->addSnp( seq, map.map_->node_, map.start_+coord-map.off_ );
+        for ( BubbleMapDetails& map : map_ ) if ( map.off_ <= coord && coord+seq.size() <= map.seq_.size()+map.off_ ) bac.snps_->addSnp( seq, map.map_->node_, map.start_+coord-map.off_ );
         assert( bac.bubbles_.empty() );
         coord += seq.size();
+        return;
+    }
+    if ( bac.bubble_->template_.empty() )
+    {
+        for ( BubbleMapDetails& map : map_ ) if ( map.off_ <= coord && coord <= map.seq_.size()+map.off_ )
+        {
+            if ( !map.type_ && ( coord-map.off_ ) == 0 ) continue;
+            if ( map.type_ == 1 && ( coord-map.off_ ) == map.seq_.size() ) continue;
+            BubbleMap bm( map.map_ );
+            bm.anchors_[0] = bm.anchors_[1] = 0;
+            bac.bubble_->maps_.push_back( bm );
+        }
         return;
     }
     vector<pair<BubbleMap, BubbleMapDetails*>> maps;
@@ -254,19 +337,16 @@ void Bubble::BubbleAltPath::remap( SnpAlignResult::BubbleAlignCoords& bac, int& 
         bm.anchors_[0] = bac.bubble_->template_.size();
         bm.anchors_[1] = 0;
         maps.push_back( make_pair( bm, &map ) );
-//        int lExcess = coord - map.off_ + map.start_;
-//        bm.anchors_[0] = max( 0, map.off_-coord );
-//        bm.anchors_[1];
     }
+    
     int b = 0, j = 0, nxt = bac.bubbles_.empty() ? bac.end_ : bac.bubbles_[0].start_, coordStart = coord;
     for ( int i = bac.start_; i < bac.end_; )
     {
         if ( i == nxt )
         {
-            assert( false );
             for ( pair<BubbleMap, BubbleMapDetails*>& map : maps ) if ( coord < map.second->seq_.size() ) map.first.anchors_[1] = max( map.first.anchors_[1], bac.bubbles_[j].bubble_->start_+bac.bubbles_[j].bubble_->len_ );
             remap( bac.bubbles_[j], coord );
-            for ( pair<BubbleMap, BubbleMapDetails*>& map : maps ) if ( map.second->off_ < coord ) map.first.anchors_[0] = min( map.first.anchors_[0], bac.bubbles_[j].bubble_->start_+bac.bubbles_[j].bubble_->len_ );
+            for ( pair<BubbleMap, BubbleMapDetails*>& map : maps ) if ( map.second->off_ < coord ) map.first.anchors_[0] = min( map.first.anchors_[0], bac.bubbles_[j].bubble_->start_ );
             b = bac.bubbles_[j].bubble_->start_ + bac.bubbles_[j].bubble_->len_;
             i = bac.bubbles_[j++].end_;
             nxt = j < bac.bubbles_.size() ? bac.bubbles_[j].start_ : bac.end_;
@@ -281,37 +361,26 @@ void Bubble::BubbleAltPath::remap( SnpAlignResult::BubbleAlignCoords& bac, int& 
                 if ( result_.s_[1][i] != '-' ) seq += result_.s_[1][i];
             }
             Bubble* bub = Bubble::addBubble( seq, bac.bubble_->bubs_, start, len );
-            for ( pair<BubbleMap, BubbleMapDetails*>& map : maps ) if ( map.second->off_ < coord+seq.size() && coord-map.second->off_ < map.second->seq_.size() )
+            for ( pair<BubbleMap, BubbleMapDetails*>& map : maps ) if ( map.second->off_ < coord+seq.size() && coord < map.second->seq_.size()+map.second->off_ )
             {
                 BubbleMap bm( map.second->map_ );
                 bm.anchors_[0] = max( 0, map.second->off_-coord );
-                bm.anchors_[1] = min( seq.size(), map.second->seq_.size()-coord-map.second->off_ );
-                assert( bm.anchors_[0] < bm.anchors_[1] && bm.anchors_[1]-bm.anchors_[0] <= seq.size() );
+                bm.anchors_[1] = min( seq.size(), map.second->seq_.size()+map.second->off_-coord );
+                assert( ( seq.empty() ? bm.anchors_[0] == bm.anchors_[1] : bm.anchors_[0] < bm.anchors_[1] ) && bm.anchors_[1]-bm.anchors_[0] <= seq.size() );
                 map.first.anchors_[0] = min( bub->start_, map.first.anchors_[0] );
                 map.first.anchors_[1] = max( bub->start_ + bub->len_, map.first.anchors_[1] );
                 BubbleCoord bc( bm.anchors_[0], map.second->start_ + max( 0, coord-map.second->off_ ), bm.anchors_[1]-bm.anchors_[0] );
                 assert( bub->template_.substr( bc.bubble_, bc.len_ ) == map.second->map_->node_->read_->seq_.substr( bc.match_, bc.len_ ) );
-                bm.coords_.push_back( bc );
+                if ( bc.len_ ) bm.coords_.push_back( bc );
                 bub->maps_.push_back( bm );
             }
-//            for ( BubbleMapDetails& map : map_ ) if ( map.off_ < coord+seq.size() && coord < map.seq_.size() )
-//            {
-//                BubbleMap bm( map.map_ );
-//                bm.anchors_[0] = max( 0, map.off_-coord );
-//                bm.anchors_[1] = min( seq.size(), map.seq_.size()-coord-map.off_ );
-//                assert( bm.anchors_[1] < bm.anchors_[0] && bm.anchors_[1]-bm.anchors_[0] <= seq.size() );
-//                BubbleCoord bc( bm.anchors_[0], bm.anchors_[0] + max( 0, coord-map.off_ ), bm.anchors_[1]-bm.anchors_[0] );
-//                assert( bub->template_.substr( bc.bubble_, bc.len_ ) == map.map_->node_->read_->seq_.substr( bc.match_, bc.len_ ) );
-//                bm.coords_.push_back( bc );
-//                bub->maps_.push_back( bm );
-//            }
             coord += seq.size();
             b += len;
         }
         else
         {
             assert( result_.s_[0][i] != '-' );
-            for ( pair<BubbleMap, BubbleMapDetails*>& map : maps ) if ( map.second->off_ <= coord && coord-map.second->off_ < map.second->seq_.size() )
+            for ( pair<BubbleMap, BubbleMapDetails*>& map : maps ) if ( map.second->off_ <= coord && coord < map.second->seq_.size()+map.second->off_ )
             {
                 map.first.addCoord( map.second->start_+coord-map.second->off_, b );
                 map.first.anchors_[0] = min( map.first.anchors_[0], b );
@@ -324,7 +393,7 @@ void Bubble::BubbleAltPath::remap( SnpAlignResult::BubbleAlignCoords& bac, int& 
         }
     }
     bool added = false;
-    for ( pair<BubbleMap, BubbleMapDetails*>& map : maps ) if ( map.second->off_ < coord && coordStart < map.second->seq_.size() )
+    for ( pair<BubbleMap, BubbleMapDetails*>& map : maps ) if ( map.second->off_ < coord && coordStart < map.second->seq_.size()+map.second->off_ )
     {
         assert( map.first.anchors_[0] < map.first.anchors_[1] || ( bac.bubble_->template_.empty() && map.first.anchors_[0] == map.first.anchors_[1] ) );
         bac.bubble_->maps_.push_back( map.first );
@@ -337,23 +406,37 @@ bool Bubble::BubbleAltPath::set( SnpAlignResult result )
 {
     score_ = -1;
     result_ = result;
+    int type = map_[0].type_, range = 0;
     for ( SnpAlignResult::BubbleAlignCoords& bac : result_.bubbles_ )
     {
-        int scores[3] = { 0, 0, 2 };
+        int scores[3] = { 0, 0, min( 2, (int)( bac.bubble_ ? bac.bubble_->template_ : bac.snp_->seq_ ).size() ) };
+        vector<int> flankGaps[2];
         for ( int i = 0; i < result_.s_[0].size(); i++ )
         {
             int gap = 0;
-            for ( int s : { 0, 1 } ) if ( result_.s_[s][i] == '-' ) while ( i < result_.s_[0].size() && result_.s_[s][i++] == '-' ) gap++;
-            int j = i < bac.start_ ? 0 : ( i < bac.end_ ? 2 : 1 );
+            for ( int s : { 0, 1 } ) if ( result_.s_[s][i] == '-' ) 
+            {
+                for ( ; i < result_.s_[0].size() && result_.s_[s][i] == '-'; i++ ) gap++;
+                if ( !s ) range += gap;
+                break;
+            }
             if ( gap )
             {
+                int j = i <= bac.start_ ? 0 : ( i-gap < bac.end_ ? 2 : 1 );
                 if ( i > bac.start_ && i-gap < bac.end_ ) j = 2;
-                scores[j] += 3 + gap;
+                if ( ( type != 0 || range ) && ( type != 1 || range < seq_.size() ) ) scores[j] -= 3 + gap;
+                if ( j != 2 ) flankGaps[j].push_back( gap );
                 i--;
             }
-            else scores[j] += result_.s_[0][i] == result_.s_[1][i] ? 1 : -1;
+            else
+            {
+                int j = i < bac.start_ ? 0 : ( i < bac.end_ ? 2 : 1 );
+                scores[j] += result_.s_[0][i] == result_.s_[1][i] ? 1 : -1;
+                range++;
+            }
         }
-        int score = scores[2] + max( 0, min( scores[0], scores[1] ) );
+        for ( int d : { 0, 1 } ) for ( int j = 1; j < flankGaps[d].size(); j++ ) scores[!d] -= 3 + flankGaps[d][j];
+        int score = scores[2] + min( 0, max( scores[0], scores[1] ) );
         if ( score <= score_ ) continue;
         score_ = score;
         bestAlign_ = bac;
@@ -361,14 +444,71 @@ bool Bubble::BubbleAltPath::set( SnpAlignResult result )
     return score_ >= 0;
 }
 
+bool Bubble::BubbleAltPath::compatible( Bubble* b, SnpAlignResult::BubbleAlignCoords& bac )
+{
+    if ( bac.bubble_ && bac.bubble_->start_ < b->start_ ) return false;
+    if ( bac.bubble_ && b->start_ + b->len_ < bac.bubble_->start_ + bac.bubble_->len_ ) return false;
+    if ( bac.snps_ && bac.snps_->start_ < b->start_ ) return false;
+    if ( bac.snps_ && b->start_ + b->len_ < bac.snps_->start_ + bac.snps_->len_ ) return false;
+    return true;
+}
+
+bool Bubble::BubbleAltPath::presplit( Bubble* base, SnpAlignResult::BubbleAlignCoords& bac )
+{
+    if ( bac.bubble_ && bac.bubble_->start_ < base->start_ )
+    {
+        return false;
+        int i = 0;
+        for ( ; i < result_.s_[0].size() && result_.s_[1][i] == '-'; i++ ) assert( result_.s_[0][i] != '-');
+        assert( !bac.start_ );
+        int coord[2]{ i-1, i };
+        vector<Bubble*> stacks[2]{ { bac.bubble_ }, { bac.bubble_ } };
+        SnpAlignResult::BubbleAlignCoords* pBac = &bac;
+        for ( int d : { 0, 1 } ) for ( int added = 1; added-- > 0; ) for ( SnpAlignResult::BubbleAlignCoords& sbac : pBac->bubbles_ ) if ( sbac.start_ <= coord[d] && coord[d] < sbac.end_ )
+        {
+            coord[d] = coord[d] - sbac.start_;
+            stacks[d].push_back( sbac.bubble_ );
+            pBac = &sbac;
+            added = 1;
+            assert( false );
+            break;
+        }
+        
+        bac.bubble_->split( stacks, coord, base->start_ );
+        assert( false );
+        return true;
+    }
+    if ( bac.bubble_ && base->start_ + base->len_ < bac.bubble_->start_ + bac.bubble_->len_ )
+    {
+        return false;
+        assert( false );
+        return true;
+    }
+    return false;
+}
+
 vector<Bubble*> Bubble::BubbleAltPath::split( Bubble* base, SnpAlignResult::BubbleAlignCoords& bac )
 {
     vector<Bubble*> created;
-    if ( bac.coord_[0] )
+    int len[2]{0};
+    for ( int i = 0; i < result_.s_[0].size(); i++ )
     {
-        created.push_back( new Bubble( base, *this, bac, bac.coord_[0], 0 ) );
+        if ( i < bac.start_ && result_.s_[1][i] != '-' ) len[0]++;
+        if ( i < bac.end_ && result_.s_[1][i] != '-' ) len[1]++;
     }
-    if ( bac.coord_[1] < seq_.size() ) created.push_back( new Bubble( base, *this, bac, bac.coord_[1], 1 ) );
+    if ( bac.start_ && ( map_[0].type_ != 0 || len[0] ) )
+    {
+        created.push_back( new Bubble( base, *this, bac, len[0], 0 ) );
+    }
+    if ( bac.end_ < result_.s_[0].size() && ( map_[0].type_ != 1 || len[1] ) )
+    {
+        created.push_back( new Bubble( base, *this, bac, len[1], 1 ) );
+    }
+//    if ( bac.coord_[0] )
+//    {
+//        created.push_back( new Bubble( base, *this, bac, bac.coord_[0], 0 ) );
+//    }
+//    if ( bac.coord_[1] < seq_.size() ) created.push_back( new Bubble( base, *this, bac, bac.coord_[1], 1 ) );
     
     int coord = 0;
     for ( int i = 0; i < bac.start_; i++ ) if ( result_.s_[1][i] != '-' ) coord++;
@@ -386,30 +526,28 @@ Bubble::Bubble( Bubble* base, BubbleAltPath& path, SnpAlignResult::BubbleAlignCo
     start_ = drxn ? bacstart+baclen : base->start_;
     len_ = drxn ? base->start_+base->len_-start_ : bacstart-start_;
     int coord[2]{ drxn ? cut : 0, drxn ? (int)path.seq_.size() : cut };
-    for ( BubbleMapDetails& map : path.map_ ) if ( map.off_ < coord[1] && coord[0] < map.seq_.size() )
+    int cutoff[2]{ coord[0] - int( drxn && template_.empty() ), coord[1] + int( !drxn && template_.empty() ) };
+    for ( BubbleMapDetails& map : path.map_ ) if ( map.off_ < cutoff[1] && cutoff[0] < map.seq_.size()+map.off_ )
     {
-//        int off = !map.type_ ? path.seq_.size()-map.seq_.size() : 0;
-//        if ( coord[1] <= cut || map.seq_.size()+off <= coord[0] ) assert( false );
-//        if ( coord[1] <= cut || map.seq_.size()+off <= coord[0] ) continue;
         BubbleMap bm( map.map_ );
         bm.anchors_[0] = template_.size();
         bm.anchors_[1] = 0;
         for ( int i = max( map.off_, coord[0] ); i < min( map.off_+(int)map.seq_.size(), coord[1] ); i++ ) assert( map.map_->node_->read_->seq_[map.start_+i-map.off_] == template_[i-coord[0]] );
         for ( int i = max( map.off_, coord[0] ); i < min( map.off_+(int)map.seq_.size(), coord[1] ); i++ ) bm.addCoord( map.start_+i-map.off_, i-coord[0] );
         maps_.push_back( bm );
-    } else assert( false );
+    }
 }
 
 Bubble::Bubble( ConMap* cm, bool drxn )
 : start_( drxn ? cm->coord_[1]+1 : cm->coord_[0] ), len_( 0 ), type_( drxn ), score_( 0 )
 {
     assert( cm->range_[drxn] == cm->mapped_[drxn] );
-    template_ = cm->node_->read_->seq_.substr( drxn ? cm->mapped_[1] : 0, cm->unmapped( drxn ) );
+    template_ = cm->node_->read_->seq_.substr( drxn ? cm->mapped_[1]+1 : 0, cm->unmapped( drxn ) );
     BubbleMap bm( cm );
     BubbleCoord bc;
     bm.anchors_[0] = bc.bubble_ = 0;
     bm.anchors_[1] = bc.len_ = template_.size();
-    bc.match_ = drxn ? cm->mapped_[1] : 0;
+    bc.match_ = drxn ? cm->mapped_[1]+1 : 0;
     bm.coords_.push_back( bc );
     maps_.push_back( bm );
     cm->mapped_[drxn] = drxn ? cm->node_->size() : 0;
@@ -461,10 +599,9 @@ Bubble::Bubble( AlignResult& result, ConMap* l, ConMap* r )
     count[0] = count[1] = 0;
     start_ = l->node_->coords_[anchor[0]] + 1;
     len_ = r->node_->coords_[anchor[1]] - start_;
-    assert( len_ >= 0 );
     
-    int pSeq = 0, excess[2]{ (int)l->node_->size()-1-anchor[1]-result.rIgnore[0], -result.lIgnore[1] };
-    for ( int i = 0; i < result.s_[0].size() && count[1] < anchor[1]; i++ )
+    int pSeq = 0, excess[2]{ (int)l->node_->size()-1-anchor[0]-result.rIgnore[0], -result.lIgnore[1] };
+    for ( int i = 0; i < result.s_[0].size() && ( count[1] < anchor[1] || result.s_[1][i] == '-' ); i++ )
     {
         if ( !pSeq && ( ( result.s_[0] == result.s_[1] && excess[0] <= excess[1] ) || excess[0] <= 0 ) ) pSeq = 1;
         
@@ -474,7 +611,6 @@ Bubble::Bubble( AlignResult& result, ConMap* l, ConMap* r )
         if ( count[1] < anchor[1] && result.s_[1][i] != '-' ) excess[1]++;
         for ( int d : { 0, 1 } ) if ( result.s_[d][i] != '-' ) count[d]++;
     }
-    
 }
 
 Bubble::~Bubble()
@@ -505,12 +641,13 @@ void Bubble::addBubble( vector<Bubble*>& bubbles, string seq, ConMap* cm, int ba
     BubbleCoord bc( 0, matchCoord, bub->template_.size() );
     map.anchors_[0] = 0;
     map.anchors_[1] = bub->template_.size();
-    map.coords_.push_back( bc );
+    if ( bc.len_ ) map.coords_.push_back( bc );
     bub->maps_.push_back( map );
 }
 
 void Bubble::addBubble( pair<int,int> bubble, pair<int,int> read, ConMap* cm )
 {
+    assert( read.first < cm->node_->size() );
     int len = bubble.second-bubble.first;
     string seq = cm->node_->read_->seq_.substr( read.first, read.second-read.first );
     
@@ -519,7 +656,7 @@ void Bubble::addBubble( pair<int,int> bubble, pair<int,int> read, ConMap* cm )
     BubbleCoord bc( 0, read.first, bub->template_.size() );
     map.anchors_[0] = 0;
     map.anchors_[1] = bub->template_.size();
-    map.coords_.push_back( bc );
+    if ( bc.len_ ) map.coords_.push_back( bc );
     bub->maps_.push_back( map );
 }
 
@@ -541,7 +678,7 @@ Bubble* Bubble::addBubble( string seq, vector<Bubble*>& bubbles, int start, int 
 void Bubble::addMatch( ConMap* cm, int start )
 {
     BubbleMap map( cm );
-    BubbleCoord bc( 0, start, len_ );
+    BubbleCoord bc( 0, start, template_.size() );
     map.anchors_[0] = 0;
     map.anchors_[1] = template_.size();
     map.coords_.push_back( bc );
@@ -575,6 +712,7 @@ void Bubble::addMatch( AlignResult& result, ConMap* a, ConMap* b, bool drxn )
 
 void Bubble::addMatch( SnpAlignResult& result, SnpAlignResult::BubbleAlignCoords& bac, ConMap* cm, int& i, int& read )
 {
+    bool finished = read == cm->node_->size();
     for ( BubbleMap& bm : maps_ ) assert( bm.map_ != cm );
     BubbleMap map( cm );
     BubbleCoord bc( 0, read, 0 );
@@ -597,7 +735,8 @@ void Bubble::addMatch( SnpAlignResult& result, SnpAlignResult::BubbleAlignCoords
             if ( bc.len_ ) map.coords_.push_back( bc );
             
             // Add bubble if currently on a mismatch run
-            if ( bc.bubble_+bc.len_ < coord || bc.match_ + bc.len_ < read ) addBubble( make_pair( bc.bubble_+bc.len_, coord ), make_pair( bc.match_+bc.len_, read ), cm );
+            if ( i <= result.start_ || result.start_+ result.len_ < i );
+            else if ( bc.bubble_+bc.len_ < coord || bc.match_ + bc.len_ < read ) addBubble( make_pair( bc.bubble_+bc.len_, coord ), make_pair( bc.match_+bc.len_, read ), cm );
             
             // Ascend bubble tree
             if ( it->bubble_ ) it->bubble_->addMatch( result, *it, cm, i, read );
@@ -633,30 +772,50 @@ void Bubble::addMatch( SnpAlignResult& result, SnpAlignResult::BubbleAlignCoords
         if ( result.s_[0][i] != '-' ) coord++;
         if ( result.s_[1][i] != '-' ) read++;
     }
+    if ( i == result.start_+result.len_ ) map.anchors_[1] = coord;
+    if ( bc.match_ + bc.len_ == cm->node_->size() ) coord = bc.bubble_+bc.len_; // Prevent adding bogus deletions if the read has simply come to its end
     
     // Clean up
     if ( bc.len_ ) map.coords_.push_back( bc );
     if ( bc.bubble_+bc.len_ < coord || bc.match_ + bc.len_ < read ) addBubble( make_pair( bc.bubble_+bc.len_, coord ), make_pair( bc.match_+bc.len_, read ), cm );
     for ( ; i < bac.end_; i++ ) if ( result.s_[1][i] != '-' ) read++;
     
-    maps_.push_back( map );
+    if ( read && !finished ) maps_.push_back( map );
+}
+
+bool Bubble::cleanup()
+{
+    bool cleaned = maps_.empty();
+    for ( int i = 0; i < bubs_.size(); i++ ) if ( bubs_[i]->cleanup() &&  bubs_[i]->maps_.empty() )
+    {
+        delete bubs_[i];
+        bubs_.erase( bubs_.begin() + i-- );
+        cleaned = true;
+    }
+    return cleaned;
 }
 
 bool Bubble::consolidate( vector<SNPs*>& snps, vector<Bubble*>& bubs, vector<Bubble*>& baseBubs, string& baseSeq )
 {
+    if ( template_.empty() ) return false;
+    
     vector<Bubble::BubbleAltPath> matches;
     for ( Bubble::BubbleAltPath& bap : Bubble::BubbleAltPath::build( this ) )
     {
         SnpAlignment align( baseSeq, bap.seq_, start_, len_, 0, bap.seq_.size(), snps, bubs );
-        if ( bap.set( align.align( true, true ) ) ) matches.push_back( bap );
+        if ( bap.set( align.align( true, true ) ) && bap.compatible( this, bap.bestAlign_  ) ) matches.push_back( bap );
     }
+    if ( matches.empty() ) return false;
+    
     sort( matches.begin(), matches.end(), []( Bubble::BubbleAltPath& a, Bubble::BubbleAltPath& b ){ return a.score_ > b.score_; } );
-    if ( !matches.empty() )
-    {
-        for ( Bubble* b : matches[0].split( this, matches[0].bestAlign_ ) ) baseBubs.push_back( b );
-        return true;
-    }
-    return false;
+    Bubble::test( baseBubs );
+    matches[0].presplit( this, matches[0].bestAlign_ );
+    
+    for ( Bubble* b : matches[0].split( this, matches[0].bestAlign_ ) ) baseBubs.push_back( b );
+    vector<Bubble*> tests;
+    for ( Bubble* b : baseBubs ) if ( b != this ) tests.push_back( b );
+    Bubble::test( tests );
+    return true;
     
 //    for ( Bubble::BubbleAltPath& bap : Bubble::BubbleAltPath::build( this ) )
 //    for ( Bubble::BubbleAltPath& bap : getAlignableSeqs() )
@@ -786,21 +945,64 @@ string Bubble::getConsensus()
     return seq;
 }
 
+vector<ConMap*> Bubble::getMapped()
+{
+    vector<ConMap*> mapped;
+    for ( BubbleMap& bm : maps_ ) mapped.push_back( bm.map_ );
+    return mapped;
+}
+
+
 void Bubble::getMapRange( ConMap* cm, int& start, int& end )
 {
     for ( BubbleMap& bm : maps_ ) if ( bm.map_ == cm )
     {
         if ( !bm.coords_.empty() ) start = min( start, bm.coords_[0].match_ );
-        if ( !bm.coords_.empty() ) end = max( end, bm.coords_[0].match_+bm.coords_[0].len_ );
+        if ( !bm.coords_.empty() ) end = max( end, bm.coords_.back().match_+bm.coords_.back().len_ );
         break;
     }
     for ( Bubble* b : bubs_ ) b->getMapRange( cm, start, end );
+}
+
+bool Bubble::getOffset( ConMap* l, ConMap* r, int& off )
+{
+    BubbleMap* maps[2]{ NULL, NULL };
+    for ( int i = 0; i < maps_.size(); i++ ) for ( int d : { 0, 1 } ) if ( maps_[i].map_ == ( d ? r : l ) ) maps[d] = &maps_[i];
+    if ( !maps[0] || !maps[1] ) return false;
+    
+    for ( BubbleCoord& lbc : maps[0]->coords_ ) for ( BubbleCoord& rbc : maps[1]->coords_ ) if ( lbc.bubble_ < rbc.bubble_+rbc.len_ && rbc.bubble_ < lbc.bubble_+lbc.len_ )
+    {
+        int diff = rbc.bubble_ - lbc.bubble_;
+        off = lbc.match_+diff-rbc.match_;
+        return true;
+    }
+    
+    for ( Bubble* b : bubs_ ) if ( b->getOffset( l, r, off ) ) return true;
+    return false;
+}
+
+bool Bubble::isAnchored()
+{
+    sort( maps_.begin(), maps_.end(), []( BubbleMap& a, BubbleMap& b ) { return a.anchors_[0] == b.anchors_[0] ? a.anchors_ [1] > b.anchors_[1] : a.anchors_[0] < b.anchors_[0]; });
+    int anchor = 0;
+    for ( BubbleMap& bm : maps_ ) if ( !bm.anchors_[0] || bm.anchors_[0] < anchor )
+    {
+        anchor = max( bm.anchors_[1], anchor );
+        if ( anchor == template_.size() ) return true;
+    }
+    return false;
 }
 
 bool Bubble::isClash( Bubble* b )
 {
     if ( b->start_ == start_ && b->len_ == len_ ) return true;
     return start_ < b->start_ + b->len_ && b->start_ < start_ + len_;
+}
+
+bool Bubble::isClash( BubbleCoord& bc )
+{
+    if ( bc.match_ == start_ && bc.len_ == len_ ) return true;
+    return start_ < bc.match_ + bc.len_ && bc.match_ < start_ + len_;
 }
 
 bool Bubble::isFoldTarget( ConMap* cm, int (&limits)[2], bool finalised, bool drxn )
@@ -825,7 +1027,7 @@ bool Bubble::isFoldTarget( ConMap* cm, int (&limits)[2], bool finalised, bool dr
     return true;
 }
 
-bool Bubble::remove( ConMap* cm )
+bool Bubble::remove( ConMap* cm, bool doErase )
 {
     bool removed = false;
     for ( int i = 0; i < maps_.size(); i++ ) if ( maps_[i].map_ == cm ) 
@@ -834,12 +1036,40 @@ bool Bubble::remove( ConMap* cm )
         removed = true;
         break;
     }
-    for ( int i = 0; i < bubs_.size(); i++ )  if ( bubs_[i]->remove( cm ) && bubs_[i]->maps_.empty() )
+    for ( int i = 0; i < bubs_.size(); i++ )  if ( bubs_[i]->remove( cm ) && bubs_[i]->maps_.empty() && doErase )
     {
         delete bubs_[i];
         bubs_.erase( bubs_.begin() + i-- );
     }
     return removed;
+}
+
+void Bubble::remove( unordered_set<ConMap*>& removes )
+{
+    for ( int i = 0; i < maps_.size(); i++ ) if ( removes.find( maps_[i].map_ ) != removes.end() ) maps_.erase( maps_.begin() + i-- );
+    for ( int i = 0; i < bubs_.size(); i++ )
+    {
+        bubs_[i]->remove( removes );
+        if ( !bubs_[i]->maps_.empty() ) continue;
+        delete bubs_[i];
+        bubs_.erase( bubs_.begin() + i-- );
+    }
+    
+}
+
+bool Bubble::retract( vector<ConMap*>& orphans )
+{
+    if ( isAnchored() ) return false;
+    for ( BubbleMap& bm : maps_ ) 
+    {
+        int coord[2]{ bm.map_->node_->size(), 0 };
+        getMapRange( bm.map_, coord[0], coord[1] );
+        if ( find( orphans.begin(), orphans.end(), bm.map_ ) == orphans.end() ) orphans.push_back( bm.map_ );
+        if ( coord[1] <= coord[0] ) continue;
+        if ( bm.map_->range_[1] < coord[1] ) bm.map_->mapped_[1] = min( coord[0]-1, bm.map_->range_[1] );
+        if ( coord[0] < bm.map_->range_[0] ) bm.map_->mapped_[0] = max( coord[1], bm.map_->range_[0] );
+    }
+    return true;
 }
 
 int Bubble::score( unordered_set<ConMap*>& maps )
@@ -865,10 +1095,159 @@ void Bubble::setRemapped( vector<pair<int,int>>& remapped, unordered_map<Bubble*
     }
 }
 
+vector<Bubble*> Bubble::split( vector<Bubble*> stacks[2], int coord[2], int anchor )
+{
+    unordered_set<ConMap*> missed, taken;
+    for ( int d : { 0, 1 } ) for ( Bubble* b : stacks[d].back()->bubs_ ) if ( b->start_ <= coord[d] && coord[d] < b->start_+b->len_ ) for ( BubbleMap& bm : b->maps_ ) missed.insert( bm.map_ );
+    for ( int d : { 0, 1 } ) for ( int i = stacks[d].size(); --i > 0; )
+    {
+        unordered_set<ConMap*> keep;
+        for ( BubbleMap& bm : stacks[d][i]->maps_ ) keep.insert( bm.map_ );
+        for ( Bubble* b : stacks[d][i-1]->bubs_ ) if ( b->isClash( stacks[d][i] ) ) for ( BubbleMap& bm : b->maps_ ) if ( keep.find( bm.map_ ) == keep.end() ) missed.insert( bm.map_ );
+        for ( BubbleMap& bm : stacks[d][i-1]->maps_ ) for ( BubbleCoord& bc : bm.coords_ ) if ( stacks[d][i]->isClash( bc ) ) missed.insert( bm.map_ );
+    }
+    
+    Bubble* bubs[2]{ new Bubble(), new Bubble() };
+    bubs[0]->type_ = bubs[1]->type_ = type_;
+    bubs[0]->start_ = start_;
+    bubs[0]->len_ = anchor-start_;
+    bubs[1]->start_ = anchor;
+    bubs[1]->len_ = start_+len_-anchor;
+    
+    for ( int d : { 0, 1 } ) for ( int i = d ? stacks[1].size()-1 : 0; i >= 0 && i < stacks[d].size(); d ? i-- : i++ )
+    {
+        Bubble* up = i+1 < stacks[d].size() ? stacks[d][i+1] : NULL;
+        int cutoff = up ? ( d ? up->start_+up->len_ : up->start_ ) : ( d ? coord[1] : coord[0]+1);
+        int offset = d ? -cutoff : bubs[0]->template_.size();
+        int len = d ? stacks[d][i]->template_.size()-cutoff : cutoff;
+        // Take mapped reads
+        for ( BubbleMap& bm : stacks[0][i]->maps_ ) if ( missed.find( bm.map_ ) == missed.end() )
+        {
+            bubs[d]->addCloned( bm, bubs[d]->template_.size(), bubs[d]->template_.size()+len, offset );
+        }
+        // Take sub-bubbles
+        for ( Bubble* b : stacks[d][i]->bubs_ ) if ( b != up && ( d ? cutoff <= b->start_ : b->start_+b->len_ <= cutoff ) )
+        {
+            bubs[d]->addCloned( b->stealBubble( missed, offset ) );
+        }
+        // Add sequence
+        bubs[d]->template_ += stacks[d][i]->template_.substr( d ? cutoff : 0, len );
+    }
+    
+    for ( int d : { 0, 1 } ) for ( BubbleMap& bm : bubs[d]->maps_ ) taken.insert( bm.map_ );
+    this->remove( taken );
+    
+//    for ( int i = 0; i < stacks[0].size(); i++ )
+//    {
+//        Bubble* nxt = i+1 < stacks[0].size() ? stacks[0][i+1] : NULL;
+//        int cutoff = nxt ? nxt->start_ : coord[0]+1, offset = bubs[0]->template_.size();
+//        for ( BubbleMap& bm : stacks[0][i]->maps_ ) if ( missed.find( bm.map_ ) == missed.end() )
+//        {
+//            bubs[0]->addCloned( bm, 0, offset+cutoff, offset );
+//        }
+//        for ( Bubble* b : stacks[0][i]->bubs_ ) if ( b != nxt && b->start_+b->len_ <= cutoff )
+//        {
+//            assert( false );
+//            if ( clone ) bubs[0]->addCloned( b->stealBubble( missed, offset ) );
+//        }
+//        bubs[0]->template_ += stacks[0][i]->template_.substr( 0, cutoff );
+//    }
+//    for ( int i = stacks[1].size(); i-- > 0; )
+//    {
+//        Bubble* prv = i+1 < stacks[1].size() ? stacks[1][i+1] : NULL;
+//        int cutoff = prv ? prv->start_+prv->len_ : coord[1];
+//        for ( Bubble* b : stacks[1][i]->bubs_ ) if ( b != prv && cutoff <= b->start_+b->len_ )
+//        {
+//            Bubble* clone = b->stealBubble( missed, bubs[1]->template_.size()-cutoff );
+//            assert( false );
+//            if ( clone ) bubs[1]->bubs_.push_back( clone );
+//        }
+//        bubs[1]->template_ += stacks[1][i]->template_.substr( cutoff );
+//    }
+    assert( false );
+}
+
+void Bubble::addCloned( Bubble* b )
+{
+    if ( !b ) return;
+    bubs_.push_back( b );
+    for ( BubbleMap& bm : b->maps_ )
+    {
+        bool added = false;
+        for ( BubbleMap& obm : maps_ ) if ( added = obm.map_ == bm.map_ )
+        {
+            bm.anchors_[0] = min( bm.anchors_[0], b->start_ );
+            bm.anchors_[1] = max( bm.anchors_[1], b->start_+b->len_ );
+            break;
+        }
+        if ( added ) continue;
+        BubbleMap nbm( bm.map_ );
+        nbm.anchors_[0] = b->start_;
+        nbm.anchors_[1] = b->start_+b->len_;
+        maps_.push_back( nbm );
+    }
+}
+
+void Bubble::addCloned( BubbleMap bm, int start, int end, int offset )
+{
+    for ( int i = 0; i < bm.coords_.size(); i++ )
+    {
+        bm.coords_[i].bubble_ -= offset;
+        int trim[2]{ max( start - bm.coords_[i].bubble_, 0 ), max( bm.coords_[i].bubble_ + bm.coords_[i].len_ - end, 0 ) };
+        bm.coords_[i].bubble_ += trim[0];
+        bm.coords_[i].match_ += trim[0];
+        bm.coords_[i].len_ -= trim[0] + trim[1];
+        if ( bm.coords_[i].len_ <= 0 ) bm.coords_.erase( bm.coords_.begin() + i-- );
+    }
+    if ( bm.coords_.empty() ) return;
+    bm.anchors_[0] = bm.coords_[0].bubble_;
+    bm.anchors_[1] = bm.coords_.back().bubble_ + bm.coords_.back().len_;
+    for ( BubbleMap& obm : maps_ ) if ( obm.map_ == bm.map_ )
+    {
+        for ( BubbleCoord& bc : bm.coords_ ) obm.addCoord( bc.match_, bc.bubble_, bc.len_ );
+        return;
+    }
+    maps_.push_back( bm );
+}
+
+Bubble* Bubble::stealBubble( unordered_set<ConMap*>& ignores, int startOffset )
+{
+    Bubble* b = new Bubble();
+    b->template_ = template_;
+    b->type_ = type_;
+    b->start_ = start_ + startOffset;
+    b->len_ = len_;
+    for ( int i = 0; i < b->maps_.size(); i++ ) if ( ignores.find( b->maps_[i].map_ ) == ignores.end() )
+    {
+        b->maps_.push_back( b->maps_[i] );
+        b->maps_.erase( b->maps_.begin() + i-- );
+    }
+    if ( b->maps_.empty() )
+    {
+        assert( false );
+        delete b;
+        return NULL;
+    }
+    for ( Bubble* sb : bubs_ )
+    {
+        Bubble* clone = sb->stealBubble( ignores, 0 );
+        if ( clone ) b->bubs_.push_back( sb );
+    }
+    return b;
+}
+
+void Bubble::test()
+{
+    for ( BubbleMap& bm : maps_ ) for ( BubbleCoord& bc : bm.coords_ ) assert( bc.len_ );
+    for ( Bubble* b : bubs_ ) b->test();
+}
+
 void Bubble::test( vector<Bubble*>& bubs )
 {
     for ( Bubble* b : bubs ) 
     {
+        b->test();
+        assert( b->isAnchored() );
         int anchors[2]{ 0, (int)b->template_.size() };
         for ( BubbleMap& bm : b->maps_ )
         {

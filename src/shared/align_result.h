@@ -41,6 +41,7 @@ struct SnpAlignResult : AlignResult
     struct BubbleAlignCoords
     {
         static void reverse( vector<BubbleAlignCoords>& bubbles, int base );
+        bool isDeletion();
         Bubble* bubble_;
         SNPs* snps_;
         SNP* snp_;

@@ -84,6 +84,7 @@ vector<Consensus*> Target::assemble()
         }
         consensus.push_back( new Consensus( overlapping, this ) );
     }
+    Consensus::reSort( consensus );
     for ( int i = 0; i+1 < consensus.size(); i++ ) if ( Consensus::bridge( consensus[i], consensus[i+1] ) )
     {
         delete consensus[i+1];

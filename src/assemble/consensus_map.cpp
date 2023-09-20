@@ -27,16 +27,35 @@
 #include <algorithm>
 #include <iostream>
 
-bool ConMap::isConsensus( int start, int end )
+bool ConMap::isConsensus( vector< pair<int,int> >& noncoords, int start, int end )
 {
+    if ( node_->read_->id_ == 7075460 && start == end )
+    {
+        int x = 0;
+    }
+    if ( node_->read_->id_ == 7849114 && start == end )
+    {
+        int x = 0;
+    }
+    // Is it actually mapped to the target?
     if ( start < coord_[0] || coord_[1] < end ) return false;
     int i = range_[0], j = range_[1];
+    // Advance to the first non-insertion greater than or equal to start
     while ( i < j && node_->coords_[i] < start && !( i+1 < node_->coords_.size() && node_->coords_[i] == node_->coords_[i+1] ) ) i++;
+    // Is start coord even mapped?
     if ( node_->coords_[i] != start ) return false;
+    
+    for ( pair<int,int>& coord : noncoords ) if ( coord.first < max( end, start+1 ) && start < max( coord.second, coord.first+1 ) )
+    {
+        return false;
+    }
+    
     while ( i < j && end < node_->coords_[j] ) j--;
-    if ( i == j ) return start == end && i && ( node_->coords_[i]-node_->coords_[i-1] == 1 );
+    // If the snp/bubble is an insertion
+    if ( i == j ) return start == end && i && ( node_->coords_[i]-node_->coords_[i-1] == 1 ) && node_->read_->seq_[i] == node_->tar_->seq_[node_->coords_[i]];
+    
     if ( node_->coords_[j-1] != end-1 ) return false;
-    for ( int k = i+1; k < j; k++ ) if ( node_->coords_[k]-node_->coords_[k-1] != 1 ) return false;;
+    for ( int k = i+1; k < j; k++ ) if ( node_->coords_[k]-node_->coords_[k-1] != 1 ) return false;
     for ( int k = i; k < j; k++ ) if ( node_->read_->seq_[k] != node_->tar_->seq_[node_->coords_[k]] ) return false;
     return true;
 }
@@ -90,8 +109,17 @@ bool ConMap::match( ConMap* cm, vector<pair<ConMap*, AlignResult>>& hits, int dr
     return false;
 }
 
-void ConMap::sanitise()
+void ConMap::sanitise( vector<int>& updated )
 {
+    for ( int i = 1; i < updated.size(); i++ ) if ( updated[i]-updated[i-1] != 1 )
+    {
+        bool bad = false;
+        for ( int j = updated[i-1]+1; j <= updated[i]; j++ ) if ( node_->coords_[j-1] > node_->coords_[j] ) bad = true;
+        if ( !bad ) continue;
+        for ( int j = updated[i-1]+1; j < updated[i]; j++ ) node_->coords_[j] = min( node_->coords_[j-1]+1, node_->coords_[updated[i]] );
+        
+    }
+    
     for ( int i = range_[0]; i-- > 0 && node_->coords_[i] >= node_->coords_[i+1]; ) node_->coords_[i] = node_->coords_[i+1]-1;
     for ( int i = range_[1]+1; i < node_->size() && node_->coords_[i] <= node_->coords_[i-1]; i++ ) node_->coords_[i] = node_->coords_[i-1]+1;
 }
@@ -103,7 +131,6 @@ void ConMap::setFinalFoldCoords( int (&base)[2], int (&read)[2], bool drxn )
         if ( drxn ? node_->coords_[i] <= base[0] : base[1] <= node_->coords_[i] )
         {
             if ( !drxn && i+1 < node_->coords_.size() && node_->coords_[i] == node_->coords_[i+1] ) continue;
-            assert( node_->coords_[i] == base[!drxn] );
             base[!drxn] = node_->coords_[i];
             read[!drxn] = i;
             return;
@@ -118,10 +145,7 @@ void ConMap::unsetMappedEnd( int cutoff, vector<Bubble*>* bubbles, vector<SNPs*>
     mapped_[drxn] = drxn ? min( mapped_[1], cutoff-1 ) : max( mapped_[0], cutoff );
     range_[drxn] = drxn ? min( range_[1], cutoff-1 ) : max( range_[0], cutoff );
     coord_[drxn] = node_->coords_[range_[drxn]];
-    if ( bubbles ) for ( Bubble* b : *bubbles ) for ( int i = 0; i < b->maps_.size(); i++ )
-    {
-        if ( b->maps_[i].map_ == this ) b->maps_.erase( b->maps_.begin() + i-- );
-    }
+    if ( bubbles ) for ( Bubble* b : *bubbles ) b->remove( this, false );
     if ( snps ) for ( SNPs* ss : *snps ) for ( SNP& s : ss->snps_ ) for ( int i = 0; i < s.matches_.size(); i++ )
     {
         if ( s.matches_[i].first == this->node_ ) s.matches_.erase( s.matches_.begin() + i-- );

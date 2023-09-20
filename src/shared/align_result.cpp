@@ -64,6 +64,11 @@ void SnpAlignResult::BubbleAlignCoords::reverse( vector<BubbleAlignCoords>& bubb
     }
 }
 
+bool SnpAlignResult::BubbleAlignCoords::isDeletion()
+{
+    return snp_ ? snp_->seq_.empty() : bubble_->template_.empty();
+}
+
 void SnpAlignResult::reverse()
 {
     for ( int k : { 0, 1 } ) std::reverse( s_[k].begin(), s_[k].end() );

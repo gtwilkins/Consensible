@@ -265,6 +265,16 @@ bool SnpAlignment::BubbleAlign::isThis( SnpAlignResult::BubbleAlignCoords& bac )
     return true;
 }
 
+bool SnpAlignment::BubbleAlign::isDeletion()
+{
+    return !align_ || align_->a_.empty();
+}
+
+int SnpAlignment::BubbleAlign::getDelLen()
+{
+    return end_-start_-( align_ ? align_->a_.size() : 0 );
+}
+
 
 SnpAlignment::SnpAlignment( string& a, string& b, int aStart, int aLen, int bStart, int bLen, vector<SNPs*> snps, vector<Bubble*>& bubbles )
 : Alignment( a, b, aStart, aLen, bStart, bLen ), wrapper_( NULL ), s_( aLen+1, vector<AlignPointer>( bLen+1 ) ), snps_( snps ), parent_( NULL )
@@ -331,6 +341,11 @@ void SnpAlignment::score()
     for ( int i = 0; i < a_.size()+1; i++ ) s_[i][0].set( this, 0, 0, freeEnds_[0] || !i ? 0 : -gapOpen_ - ( i * gapExt_ ) );
     for ( int j = 0; j < b_.size()+1; j++ ) s_[0][j].set( this, 0, 0, freeEnds_[0] || !j ? 0 : -gapOpen_ - ( j * gapExt_ ) );
     for ( int j = 0; j < iMax.size(); j++ ) iMax[j].set( this, 0, s_[0][j].score_ );
+    if ( !freeEnds_[0] ) for ( BubbleAlign* ba : bubbles_ ) if ( ba->getDelLen() > 0 )
+    {
+        int len = ba->getDelLen();
+        for ( int i = ba->end_; i < a_.size()+1; i++ )  s_[i][0].update( this, 0, 0, i>len ? -gapOpen_ - ( ( i-len ) * gapExt_ ) : 0 );
+    }
     score( iMax );
 }
 
@@ -344,33 +359,13 @@ void SnpAlignment::score( vector<GapPointer>& iMax )
     }
     sort( bubbles_.begin(), bubbles_.end(), []( BubbleAlign* a, BubbleAlign* b ){ return a->end_ < b->end_; } );
     
+    if ( a_.empty() ) for ( BubbleAlign* ba : bubbles[0][0] ) setBubble( bubbles[1][0], ba, iMax, 0 );
+    
     vector<int> jMax( a_.size(), 0 );
     for ( int i = 0; i < a_.size(); i++ )
     {
         for ( int j = 0; j < iMax.size(); j++ ) iMax[j].len_++;
-        for ( BubbleAlign* ba : bubbles[0][i] ) setBubble( ba, iMax, i );
-        
-//        for ( int j = 0; j < b_.size(); j++ )
-//        {
-//            // Simple match
-//            bool matched = s_[i+1][j+1].set( this, i, j, s_[i][j].score_ + ( a_[i] == b_[j] ? hit_ : -miss_ ) );
-//            // Insert a_, gap b_
-//            if ( s_[i+1][j+1].update( iMax[j].align_, iMax[j].i_+1, j+1, iMax[j].score( gapOpen_, gapExt_ ) ) ) matched = false;
-//            // Insert b_, gap a_
-//            if ( s_[i+1][j+1].update( this, i+1, jMax[i]+1, s_[i+1][jMax[i]+1].score_ - gapOpen_ - ( ( j-jMax[i] ) * gapExt_ ) ) ) matched = false;
-//            // Try match bubbles or insert from bubble
-//            for ( BubbleAlign* ba : bubbles[1][i] ) getBubble( ba, iMax, i, j, matched );
-//            // Reset if free ends
-//            if ( freeEnds_[0] && s_[i+1][j+1].score_ < 0 ) matched = s_[i+1][j+1].set( this, i+1, j+1, 0 );
-//            
-//            if ( matched )
-//            {
-//                if ( s_[i+1][j+1].score_ >= s_[i+1][jMax[i]+1].score_ - ( ( j-jMax[i] ) * gapExt_ ) ) jMax[i] = j;
-//                if ( s_[i+1][j+1].score_ >= iMax[j].score_ - ( ( iMax[j].len_-iMax[j].del_ ) * gapExt_ ) ) iMax[j].set( s_[i+1][j+1].align_, s_[i+1][j+1].i_,  s_[i+1][j+1].score_ );
-//                if ( s_[i+1][j+1].score_ >= s_[ijMax_.first][ijMax_.second].score_ ) ijMax_ = make_pair( i+1, j+1 );
-//            }
-////            for ( BubbleAlign* ba : dels ) if ( i == ba->end_ && i >= ba->snps_->len_ ) s_[i+1][j+1].update( this, i-ba->snps_->len_, j, s_[i-ba->snps_->len_][j].score_ + ( a_[i] == b_[j] ? hit_ : -miss_ ) );
-//        }
+        for ( BubbleAlign* ba : bubbles[0][i] ) setBubble( bubbles[1][i], ba, iMax, i );
         for ( int j = 0; j < b_.size(); j++ )
         {
             // Simple match
@@ -393,16 +388,49 @@ void SnpAlignment::score( vector<GapPointer>& iMax )
 //            for ( BubbleAlign* ba : dels ) if ( i == ba->end_ && i >= ba->snps_->len_ ) s_[i+1][j+1].update( this, i-ba->snps_->len_, j, s_[i-ba->snps_->len_][j].score_ + ( a_[i] == b_[j] ? hit_ : -miss_ ) );
         }
     }
-    for ( int j = 0; j < iMax.size(); j++ ) iMax[j].len_++;
+    if ( !a_.empty() ) for ( int j = 0; j < iMax.size(); j++ ) iMax[j].len_++;
     scored_ = true;
 }
 
-void SnpAlignment::setBubble( BubbleAlign* ba, vector<GapPointer> iMax, int ii )
+void SnpAlignment::setBubble( vector<BubbleAlign*>& prv, BubbleAlign* ba, vector<GapPointer> iMax, int ii )
 {
     if ( ba->align_ )
     {
+        ba->align_->freeEnds_[0] = freeEnds_[0];
+        ba->align_->freeEnds_[1] = freeEnds_[1];
         for ( int i = 1; i < ba->align_->a_.size()+1; i++ ) ba->align_->s_[i][0].set( s_[ii][0].align_, 0, 0, freeEnds_[0] ? 0 : min( s_[ii][0].score_, -gapOpen_ ) - ( i * gapExt_ ) );
         for ( int j = 0; j < ba->align_->b_.size()+1; j++ ) ba->align_->s_[0][j] = s_[ii][j];
+        if ( !freeEnds_[0] ) for ( BubbleAlign* baba : ba->align_->bubbles_ ) if ( baba->getDelLen() > 0 )
+        {
+            int len = baba->getDelLen();
+            for ( int i = baba->end_; i < ba->align_->a_.size()+1; i++ )  ba->align_->s_[i][0].update( s_[ii][0].align_, 0, 0, ( s_[ii][0].score_ < 0 || i>len ) ? min( s_[ii][0].score_, -gapOpen_ ) - ( ( i-len ) * gapExt_ ) : 0 );
+        }
+//        if ( a_ == "AAGGGATTGGTGGAGTTTCGTTTCGTCTCCATCAGCACCTTGTGAGAAATCATAAGTCTTTGGGTTCCGGGGGAGTATGG" && b_ == "TCAGGGTGGTCTGTCGATTTAACGATAGACCGAACTGTAGGAGAAATCAAAGTCTTTGGGTTCCGGGGGG" && ba->bubble_ && ba->bubble_->start_ == 1045 )
+////        if ( false )
+//        {
+//            int x = 0;
+            for ( BubbleAlign* baba : prv ) if ( baba->start_ < ba->start_ ) for ( int j = 0; j < ba->align_->b_.size()+1; j++ )
+            {
+                if ( baba->align_ )
+                {
+                    int iii = baba->align_->s_.size()-1;
+                    ba->align_->s_[0][j].update( baba->align_, iii, j, baba->align_->s_[iii][j].score_ );
+                }
+                else
+                {
+                    int iii = baba->start_;
+                    if ( ba->align_->s_[0][j].update( s_[iii][j].align_, s_[iii][j].i_, s_[iii][j].j_, s_[iii][j].score_ ) ) ba->align_->s_[0][j].deletion_ = true;
+                }
+            }
+//        }
+//        else
+//        {
+//            for ( BubbleAlign* baba : prv ) if ( baba->align_ && baba->start_ < ba->start_ ) for ( int j = 0; j < ba->align_->b_.size()+1; j++ )
+//            {
+//                int iii = baba->align_->s_.size()-1;
+//                ba->align_->s_[0][j].update( baba->align_, iii, j, baba->align_->s_[iii][j].score_ );
+//            }
+//        }
         ba->align_->score( iMax );
     }
     ba->iMax_ = iMax;
@@ -410,33 +438,30 @@ void SnpAlignment::setBubble( BubbleAlign* ba, vector<GapPointer> iMax, int ii )
 
 void SnpAlignment::getBubble( BubbleAlign* ba, vector<GapPointer>& iMax, int i, int j, bool& matched )
 {
-    if ( ba->align_ )
+    if ( !ba->isDeletion() )
     {
         int ii = ba->align_->a_.size();
+        // Try continue from the last a_ of bubble
         if ( s_[i+1][j+1].update( ba->align_, ii, j, ba->align_->s_[ii][j].score_ + ( a_[i] == b_[j] ? hit_ : -miss_ ) ) ) matched = true;
-        if ( s_[i+1][j+1].update( ba->iMax_[j].align_, ba->iMax_[j].i_, j+1, ba->iMax_[j].score( gapOpen_, gapExt_ ) ) ) matched = false;
-        if ( iMax[j].score( gapOpen_, gapExt_ ) < ba->iMax_[j].score( gapOpen_, gapExt_ ) ) iMax[j] = ba->iMax_[j];
-        for ( int k = ba->align_->bubbles_.size(); k-- > 0 && ba->align_->bubbles_[k]->end_ >= ii; )
-        {
-            getBubble( ba->align_->bubbles_[k], iMax, i, j, matched );
-        }
     }
     else
     {
+        // Try skip empty bubble
         if ( s_[i+1][j+1].update( this, ba->start_, j, s_[ba->start_][j].score_ + ( a_[i] == b_[j] ? hit_ : -miss_ ) ) ) s_[i+1][j+1].deletion_ = matched = true;
     }
+    
+    // Insert a_, gap b_
+    if ( s_[i+1][j+1].update( ba->iMax_[j].align_, ba->iMax_[j].i_, j+1, ba->iMax_[j].score( gapOpen_, gapExt_ ) ) ) matched = false;
+    
+    // Take iMaxes if superior
+    if ( iMax[j].score( gapOpen_, gapExt_ ) < ba->iMax_[j].score( gapOpen_, gapExt_ ) ) iMax[j] = ba->iMax_[j];
+    
+    if ( ba->align_ ) for ( int k = ba->align_->bubbles_.size(); k-- > 0 && ba->align_->bubbles_[k]->end_ >= ba->align_->a_.size(); )
+    {
+        // Explore a terminal sub-bubble
+        getBubble( ba->align_->bubbles_[k], iMax, i, j, matched );
+    }
 }
-
-//bool SnpAlignment::getStack( vector<BubbleAlign*>& stack, SnpAlignment* base )
-//{
-//    SnpAlignment* cur = this;
-//    while ( cur && cur != base && cur->wrapper_ )
-//    {
-//        stack.insert( stack.end(), cur->wrapper_ );
-//        cur = cur->wrapper_->parent_;
-//    }
-//    return cur == base;
-//}
 
 SnpAlignment::AlignPointer SnpAlignment::getEnd( SnpAlignResult& result )
 {
@@ -445,12 +470,12 @@ SnpAlignment::AlignPointer SnpAlignment::getEnd( SnpAlignResult& result )
     best.set( this, i, j, s_[i][j].score_ );
     for ( BubbleAlign* ba : bubbles_ )
     {
-        if ( ba->align_ && ( freeEnds_[1] || ba->end_ == a_.size() ) )
+        if ( !ba->isDeletion() && ( freeEnds_[1] || ba->end_ == a_.size() ) )
         {
             AlignPointer alt = ba->align_->getEnd( result );
             if ( best.update( alt.align_, alt.i_, alt.j_, alt.score_ ) ) result.bubbles_.clear();
         }
-        else if ( ba->snp_ && ba->snp_->seq_.empty() && ba->end_ == a_.size() && best.update( this, ba->start_, j, s_[ba->start_][j].score_ ) )
+        else if ( ba->isDeletion() && ba->end_ == a_.size() && best.update( this, ba->start_, j, s_[ba->start_][j].score_ ) )
         {
             result.bubbles_.clear();
             SnpAlignResult::BubbleAlignCoords bac;
@@ -479,107 +504,11 @@ vector<SnpAlignment::BubbleAlign*> SnpAlignment::getStack( SnpAlignment* base )
     return stack;
 }
 
-//void SnpAlignment::scoreOld()
-//{
-//    for ( int i = 0; i < a_.size()+1; i++ ) p_[i][0] = -i;
-//    for ( int j = 0; j < b_.size()+1; j++ ) p_[0][j] = j;
-//    for ( int i = 0; i < a_.size()+1; i++ ) m_[i][0] = freeEnds_[0] || !i ? 0 : -gapOpen_ - ( i * gapExt_ );
-//    for ( int j = 0; j < b_.size()+1; j++ ) m_[0][j] = freeEnds_[0] || !j ? 0 : -gapOpen_ - ( j * gapExt_ );
-//    vector<int> iMax( b_.size(), 0 ), jMax( a_.size(), 0 );
-//    int iSnp = 0;
-//    for ( int i = 0; i < a_.size(); i++ )
-//    {
-//        int coord = i+coord_[0];
-//        while ( iSnp < snps_.size() && snps_[iSnp]->start_+snps_[iSnp]->len_ < coord+1 ) iSnp++;
-//        for ( int j = 0; j < b_.size(); j++ )
-//        {
-//            m_[i+1][j+1] = m_[i][j] + ( a_[i] == b_[j] ? hit_ : -miss_ );
-//            p_[i+1][j+1] = 0;
-//            
-//            // Find the previous i value for which the current j was highest
-//            int aGapLen = j-jMax[i];
-//            int bGapLen = i-iMax[j];
-//            int aGapScore = m_[i+1][jMax[i]+1] - gapOpen_ - ( aGapLen * gapExt_ );
-//            int bGapScore = m_[iMax[j]+1][j+1] - gapOpen_ - ( bGapLen * gapExt_ );
-//            if ( aGapScore > m_[i+1][j+1] )
-//            {
-//                m_[i+1][j+1] = aGapScore;
-//                p_[i+1][j+1] = aGapLen;
-//            }
-//            if ( bGapScore > m_[i+1][j+1] )
-//            {
-//                m_[i+1][j+1] = bGapScore;
-//                p_[i+1][j+1] = -bGapLen;
-//            }
-//            
-//            for ( int k = iSnp; k < snps_.size() && snps_[k]->start_+snps_[k]->len_ == coord+1; k++ )
-//            {
-//                for ( int kk = 0; kk < snps_[k]->snps_.size(); kk++ )
-//                {
-//                    int m, p = 0;
-//                    if ( !snps_[k]->len_ )
-//                    {
-//                        assert( false );
-//                        assert( snps_[k]->snps_[kk].seq_.size() == 1 );
-//                        // gap in a
-//                        m = m_[i+1][j] + ( snps_[k]->snps_[kk].seq_[0] == b_[i] ? hit_ : -miss_ );
-//                        p = 1;
-//                    }
-//                    else if ( snps_[k]->snps_[kk].seq_.size() == 1 )
-//                    {
-//                        if ( snps_[k]->snps_[kk].seq_[0] != b_[j] ) continue;
-//                        m = m_[i][j] + hit_;
-//                    }
-//                    else if ( snps_[k]->snps_[kk].seq_.empty() )
-//                    {
-//                        // gap in b
-//                        m = m_[i][j+1];
-//                        p = -1;
-//                    }
-//                    else
-//                    {
-//                        assert( false );
-//                        // impossible!
-//                    }
-//                    
-//                    if ( m > m_[i+1][j+1] )
-//                    {
-//                        assert( !p || m < 1 );
-//                        m_[i+1][j+1] = m;
-//                        p_[i+1][j+1] = p;
-//                        snp_[i+1][j+1] = make_pair( k, kk );
-//                    }
-//                }
-//            }
-//            
-//            if ( freeEnds_[0] && m_[i+1][j+1] < 0 )
-//            {
-//                m_[i+1][j+1] = 0;
-//                p_[i+1][j+1] = 0;
-//                snp_[i+1][j+1] = make_pair( -1, -1 );
-//            }
-//            
-//            if ( p_[i+1][j+1] == 0 )
-//            {
-//                if ( m_[i+1][j+1] >= m_[i+1][jMax[i]+1] - ( aGapLen * gapExt_ ) ) jMax[i] = j;
-//                if ( m_[i+1][j+1] >= m_[iMax[j]+1][j+1] - ( bGapLen * gapExt_ ) ) iMax[j] = i;
-//                if ( m_[i+1][j+1] > m_[iMax_][jMax_])
-//                {
-//                    iMax_ = i+1;
-//                    jMax_ = j+1;
-//                }
-//            }
-//        }
-//    }
-//    scored_ = true;
-//}
-
 SnpAlignResult SnpAlignment::align( bool lAnchored, bool rAnchored )
 {
     if ( lAnchored == freeEnds_[0] || rAnchored == freeEnds_[1] ) scored_ = false;
     freeEnds_[0] = !lAnchored;
     freeEnds_[1] = !rAnchored;
-//    SnpAlignResult oldResult = alignOld( lAnchored, rAnchored );
     scored_ = false;
     if ( !scored_ ) score();
     
@@ -588,26 +517,10 @@ SnpAlignResult SnpAlignment::align( bool lAnchored, bool rAnchored )
     SnpAlignment* cur = start.align_;
     int i = start.i_, j = start.j_;
     
-//    SnpAlignment* cur = this;
-//    if ( freeEnds_[1] ) for ( pair<SnpAlignment*, int> b : findEnd() )
-//    {
-//        result.s_[0].insert( result.s_[0].end(), cur->a_.rbegin(), cur->a_.rbegin() + b.second );
-//        cur = b.first;
-//    }
-//    
-//    int i = freeEnds_[1] ? cur->ijMax_.first : cur->a_.size(), j = freeEnds_[1] ? cur->ijMax_.second : cur->b_.size();
-//    result.s_[0].insert( result.s_[0].end(), cur->a_.rbegin(), cur->a_.rbegin() + ( cur->a_.size()-i ) );
-//    result.s_[1].insert( result.s_[1].end(), b_.rbegin(), b_.rbegin() + ( b_.size()-j ) );
-//    if ( result.s_[1].size() > result.s_[0].size() ) result.s_[0].insert( 0, string( result.s_[1].size()-result.s_[0].size(), '-' ) );
-//    if ( result.s_[0].size() > result.s_[1].size() ) result.s_[1].insert( 0, string( result.s_[0].size()-result.s_[1].size(), '-' ) );
-//    assert( result.s_[0].size() == result.s_[1].size() );
-    
-//    vector<BubbleAlign*> stack;
-//    cur->getStack( stack, this );
-    
     AlignPointer* ap = &cur->s_[i][j];
     while ( ap && ap != &s_[0][0] )
     {
+        assert( ap->align_ );
         bool terminated = ap->align_ == cur && ap->i_ == i && ap->j_ == j;
         if ( terminated ) ap->set( this, 0, 0, 0 );
         if ( terminated || !i || !j ) result.len_ = result.s_[0].size();
@@ -645,8 +558,6 @@ SnpAlignResult SnpAlignment::align( bool lAnchored, bool rAnchored )
     }
     
     finish( result, start );
-//    assert( oldResult.s_[0] == result.s_[0] );
-//    assert( oldResult.s_[1] == result.s_[1] );
     
     return result;
 }
@@ -670,6 +581,12 @@ void SnpAlignment::add( SnpAlignResult& result, int i )
                 bac.snp_ = stack[k]->snp_;
                 cur->push_back( bac );
             }
+            else
+            {
+                int gaps = 0;
+                while ( gaps < result.s_[0].size() && result.s_[0].end()[-gaps-1] == '-' ) gaps++;
+                cur->back().end_ += gaps;
+            }
             assert( cur->back().end_ == result.s_[0].size() );
             cur->back().end_++;
             cur = &cur->back().bubbles_;
@@ -683,20 +600,40 @@ void SnpAlignment::fill( SnpAlignResult& result, int& i, int iEnd, bool deletion
     if ( ascending ) i = a_.size();
     if ( deletion )
     {
-        for ( BubbleAlign* ba : bubbles_ ) if ( ba->snp_ && ba->snp_->seq_.empty() && iEnd <= ba->start_ && ba->end_ <= i )
+        for ( BubbleAlign* ba : bubbles_ ) if ( ba->isDeletion() && iEnd <= ba->start_ && ba->end_ <= i )
+//        for ( BubbleAlign* ba : bubbles_ ) if ( ba->snp_ && ba->snp_->seq_.empty() && iEnd <= ba->start_ && ba->end_ <= i )
         {
             while ( ba->end_ < i ) add( result, --i );
-            SnpAlignResult::BubbleAlignCoords bac;
-            bac.start_ = bac.end_ = result.s_[0].size();
-            bac.coord_[0] = ba->start_;
-            bac.coord_[1] = ba->end_;
-            bac.bubble_ = ba->bubble_;
-            bac.snps_ = ba->snps_;
-            bac.snp_ = ba->snp_;
-            result.bubbles_.push_back( bac );
+            vector<BubbleAlign*> stack = getStack( NULL );
+            stack.insert( stack.begin(), ba );
+            vector<SnpAlignResult::BubbleAlignCoords>* cur = &result.bubbles_;
+            for ( int k = stack.size(); k-- > 0; )
+            {
+                if ( cur->empty() || !stack[k]->isThis( cur->back() ) )
+                {
+                    SnpAlignResult::BubbleAlignCoords bac;
+                    bac.start_ = bac.end_ = result.s_[0].size();
+                    bac.coord_[0] = stack[k]->start_;
+                    bac.coord_[1] = stack[k]->end_;
+                    bac.bubble_ = stack[k]->bubble_;
+                    bac.snps_ = stack[k]->snps_;
+                    bac.snp_ = stack[k]->snp_;
+                    cur->push_back( bac );
+                }
+                cur = &cur->back().bubbles_;
+            }
+//            SnpAlignResult::BubbleAlignCoords bac;
+//            bac.start_ = bac.end_ = result.s_[0].size();
+//            bac.coord_[0] = ba->start_;
+//            bac.coord_[1] = ba->end_;
+//            bac.bubble_ = ba->bubble_;
+//            bac.snps_ = ba->snps_;
+//            bac.snp_ = ba->snp_;
+//            result.bubbles_.push_back( bac );
             i = ba->start_;
             break;
         }
+        int y = 0;
     }
     while ( iEnd < i ) add( result, --i );
 //    while ( iEnd < i ) result.s_[0] += a_[--i];
@@ -713,7 +650,7 @@ void SnpAlignment::finish( SnpAlignResult& result, AlignPointer& start )
         while ( i < ba->align_->a_.size() ) ba->align_->add( result, i++ );
         i = ba->end_;
     }
-    if ( !result.bubbles_.empty() && result.bubbles_.back().coord_[0] == i && result.bubbles_.back().snp_ && result.bubbles_.back().snp_->seq_.empty())
+    if ( !result.bubbles_.empty() && result.bubbles_.back().coord_[0] == i && result.bubbles_.back().isDeletion() )
     {
         i = result.bubbles_.back().coord_[1];
     }

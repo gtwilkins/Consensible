@@ -45,12 +45,29 @@ vector<ConsensusResolution> ConsensusResolution::create( vector<Bubble*>& bubs, 
 {
     vector<ConsensusResolution> resolves;
     sort( maps.begin(), maps.end(), []( ConMap* a, ConMap* b ){ return a->coord_[0] == b->coord_[0] ? a->coord_[1] > b->coord_[1] : a->coord_[0] < b->coord_[0]; } );
+    unordered_map<Match*, vector< pair<int,int> > > noncons;
+    
+    for ( ConMap* cm : maps ) noncons.insert( make_pair( cm->node_, vector< pair<int,int>>{} ) );
+    for ( Bubble* b : bubs ) for ( ConMap* cm : b->getMapped() )
+    {
+        auto it = noncons.find( cm->node_ );
+        assert( it != noncons.end() );
+        it->second.push_back( make_pair( b->start_, b->start_+b->len_ ) );
+    }
+    for ( SNPs* s : snps ) for ( SNP& snp : s->snps_ ) for ( pair<Match*, int>& match : snp.matches_ )
+    {
+        auto it = noncons.find( match.first );
+        assert( it != noncons.end() );
+        it->second.push_back( make_pair( s->start_, s->start_+s->len_ ) );
+    }
+    
+    
     int i = 0;
     for ( Bubble* b : bubs )
     {
         unordered_set<ConMap*> mapped;
         while ( i < maps.size() && maps[i]->coord_[1] <= b->start_ ) i++;
-        for ( int j = i; j < maps.size() && ( maps[j]->coord_[0] < b->start_ + b->len_ ); j++ ) if ( maps[j]->isConsensus( b->start_, b->start_+b->len_ ) ) mapped.insert( maps[j] );
+        for ( int j = i; j < maps.size() && ( maps[j]->coord_[0] < b->start_ + b->len_ ); j++ ) if ( maps[j]->isConsensus( noncons[maps[j]->node_], b->start_, b->start_+b->len_ ) ) mapped.insert( maps[j] );
         if ( b->score( mapped ) > 0 ) resolves.push_back( ConsensusResolution( b ) );
     }
     i = 0;
@@ -58,10 +75,10 @@ vector<ConsensusResolution> ConsensusResolution::create( vector<Bubble*>& bubs, 
     {
         unordered_set<Match*> mapped;
         while ( i < maps.size() && maps[i]->coord_[1] <= s->start_ ) i++;
-        for ( int j = i; j < maps.size() && ( maps[j]->coord_[0] < s->start_ + s->len_ ); j++ ) if ( maps[j]->isConsensus( s->start_, s->start_+s->len_ ) ) mapped.insert( maps[j]->node_ );
+        for ( int j = i; j < maps.size() && ( maps[j]->coord_[0] < s->start_ + s->len_ ); j++ ) if ( maps[j]->isConsensus( noncons[maps[j]->node_], s->start_, s->start_+s->len_ ) ) mapped.insert( maps[j]->node_ );
         if ( s->score( mapped ) > 0 ) resolves.push_back( ConsensusResolution( s ) );
     }
-    sort( resolves.begin(), resolves.end(), []( ConsensusResolution& a, ConsensusResolution& b ){ return a.start_ == b.start_ ? a.end_ > b.end_ : a.start_ < b.start_; } );
+    sort( resolves.begin(), resolves.end(), []( ConsensusResolution& a, ConsensusResolution& b ){ return a.start_ == b.start_ ? ( a.start_ == a.end_ || b.start_ == b.end_ ? a.end_ < b.end_ : a.end_ > b.end_ ) : a.start_ < b.start_; } );
     return resolves;
 }
 
@@ -106,6 +123,6 @@ vector<ConsensusResolution> ConsensusResolution::resolve( vector<Bubble*> branch
     for ( int i : doms ) result.push_back( resolves[i] );
     branch( branches[0], maps, result, 0 );
     branch( branches[1], maps, result, 1 );
-    sort( result.begin(), result.end(), []( ConsensusResolution& a, ConsensusResolution& b ){ return a.start_ == b.start_ ? a.end_ > b.end_ : a.start_ < b.start_; } );
+    sort( result.begin(), result.end(), []( ConsensusResolution& a, ConsensusResolution& b ){ return a.start_ == b.start_ ? ( a.start_ == a.end_ || b.start_ == b.end_ ? a.end_ < b.end_ : a.end_ > b.end_ ) : a.start_ < b.start_; } );
     return result;
 }

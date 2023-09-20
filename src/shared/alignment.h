@@ -88,6 +88,8 @@ class SnpAlignment : Alignment
         BubbleAlign( SnpAlignment* parent, Bubble* b, int coord, int parentLen  );
         BubbleAlign( SnpAlignment* parent, SNPs* snps, int i, int coord );
         bool isThis( SnpAlignResult::BubbleAlignCoords& bac );
+        bool isDeletion();
+        int getDelLen();
         void set( vector<GapPointer> iMax, int ii );
         SnpAlignment* align_,* parent_;
         Bubble* bubble_;
@@ -113,7 +115,7 @@ class SnpAlignment : Alignment
 //    void scoreOld();
     void score();
     void score( vector<GapPointer>& iMax );
-    void setBubble( BubbleAlign* ba, vector<GapPointer> iMax, int ii );
+    void setBubble( vector<BubbleAlign*>& prv, BubbleAlign* ba, vector<GapPointer> iMax, int ii );
     void getBubble( BubbleAlign* ba, vector<GapPointer>& iMax, int i, int j, bool& matched );
     vector<SNPs*> snps_;
     vector< vector<AlignPointer> > s_;

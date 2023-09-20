@@ -70,7 +70,7 @@ int main( int argc, char** argv )
             int i = 0;
             while ( arguments.setBwtPrefix() )
             {
-//                if ( i >= 14 )
+//                if ( i >= 29 )
 //                {
                     Index idx( arguments );
                     arguments.updateFileIndex();

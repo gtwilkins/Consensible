@@ -376,6 +376,10 @@ void Consensus::addMismatch( ConMap* cm, Match* match, int lGood, int rGood )
 
 bool Consensus::bridge( Consensus* lhs, Consensus* rhs )
 {
+    if ( rhs->coord_[0] < lhs->coord_[1] )
+    {
+        return lhs->merge( rhs );
+    }
     if ( !lhs->kmers_ ) lhs->mapKmers();
     if ( !rhs->kmers_ ) rhs->mapKmers();
     
@@ -446,34 +450,12 @@ bool Consensus::bridge( Consensus* lhs, Consensus* rhs )
                 return lhs->merge( rhs, result, hit.first.first, hit.first.second );
             }
         }
-        int x = 0;
     }
-    int x = 0;
     return false;
 }
 
-bool Consensus::foldEnd( ConMap* cm, vector<Bubble*>* branches, bool force, bool d )
+bool Consensus::foldEnd( ConMap* cm, vector<Bubble*>* branches, bool force, bool cleanup, bool d )
 {
-//    int tLen = min( cm->unmapped( d )+10, d ? (int)template_.size()-cm->coord_[1]-1 : cm->coord_[0] );
-//    int tStart = d ? cm->coord_[1]+1 : cm->coord_[0]-tLen;
-//    
-//    vector<SNPs*> snps;
-//    vector<Bubble*> bubbles;
-    
-    
-    
-//    if ( branches )
-//    {
-//        for ( vector<Bubble*>* bs : { branches, &branch_[d] } ) for ( Bubble* b : *bs ) if ( tStart <= b->start_ && b->start_ <= tStart+tLen ) bubbles.push_back( b );
-//        if ( bubbles.empty() ) return false;
-//    }
-//    for ( SNPs* s : snps_ ) if ( tStart <= s->start_ && s->start_ + s->len_ <= tStart + tLen ) snps.push_back( s );
-//    for ( Bubble* b : bubble_ ) if ( ( tStart <= b->start_ && b->start_ <= tStart + tLen ) || ( tStart <= b->start_ + b->len_ && b->start_ + b->len_ <= tStart+tLen ) ) bubbles.push_back( b );
-//    if ( !force && snps.empty() && bubbles.empty() ) return false;
-//    
-//    SnpAlignment align( template_, cm->node_->read_->seq_, tStart, tLen, d ? cm->range_[1]+1 : 0, cm->unmapped( d ), snps, bubbles );
-//    SnpAlignResult result = align.align( d, !d );
-    
     int tLen = min( cm->unmapped( d )+10, d ? (int)template_.size()-cm->coord_[1]-1 : cm->coord_[0] );
     int limits[2]{ d ? cm->coord_[1]+1 : cm->coord_[0]-tLen, d ? cm->coord_[1]+1+tLen : cm->coord_[0] };
     int read[2]{ d ? cm->range_[1]+1 : 0, d ? cm->node_->size() : cm->range_[0] };
@@ -498,6 +480,11 @@ bool Consensus::foldEnd( ConMap* cm, vector<Bubble*>* branches, bool force, bool
     if ( !result.len_ ) return false;
     cm->unsetMappedEnd( read[!d], &bubbles, &snps, d );
     updateMapped( cm, result, limits[0], d );
+    if ( cleanup ) for ( Bubble* b : bubbles ) if ( b->cleanup() && b->maps_.empty() )
+    {
+        bubble_.erase( remove( bubble_.begin(), bubble_.end(), b ), bubble_.end() );
+        delete b;
+    }
     return true;
 }
 
@@ -518,7 +505,7 @@ void Consensus::foldEnds()
         for ( SNPs* s : snps_ ) oldSnps.insert( make_pair( s, s->snps_.size() ) );
         for ( Bubble* b : bubble_ ) oldBubs.insert( make_pair( b, b->maps_.size() ) );
         
-        for ( int d : { 0, 1 } ) for ( ConMap* cm : ends[d] ) foldEnd( cm, NULL, force, d );
+        for ( int d : { 0, 1 } ) for ( ConMap* cm : ends[d] ) foldEnd( cm, NULL, force, true, d );
         
         vector<pair<int,int>> remapped;
         SNPs::setRemapped( remapped, oldSnps, snps_ );
@@ -536,7 +523,7 @@ void Consensus::foldEnds()
         vector<Bubble*> branches;
         for ( ConMap* cm : ends[d] )
         {
-            foldEnd( cm, &branches, false, d );
+            foldEnd( cm, &branches, false, true, d );
             if ( cm->unmapped( d ) && cm->range_[d] == cm->mapped_[d] ) branches.push_back( new Bubble( cm, d ) );
         }
         for ( Bubble* b : branches )
@@ -546,70 +533,6 @@ void Consensus::foldEnds()
         }
         
     }
-    
-//    unordered_map<ConMap*, AlignResult> aligns[2];
-//    if ( !snps_.empty() ) for ( int d : { 0, 1 } )
-//    {
-//        sort( snps_.begin(), snps_.end(), [&]( SNPs* a, SNPs* b ){ return d ? a->start_ < b->start_ : a->start_+a->len_ < b->start_+b->len_; } );
-//        for ( ConMap* cm : maps_ ) if ( cm->unmapped( d ) )
-//        {
-//            int tLen = min( cm->unmapped( d )+10, d ? (int)template_.size()-cm->coord_[1]-1 : cm->coord_[0] );
-//            int tStart = d ? cm->coord_[1]+1 : cm->coord_[0]-tLen;
-//            vector<SNPs*> snps;
-//            vector<Bubble*> bubbles;
-//            for ( SNPs* s : snps_ ) if ( tStart <= s->start_ && s->start_ + s->len_ <= tStart + tLen ) snps.push_back( s );
-//            for ( Bubble* b : bubble_ ) if ( ( tStart <= b->start_ && b->start_ <= tStart + tLen ) || ( tStart <= b->start_ + b->len_ && b->start_ + b->len_ <= tStart+tLen ) ) bubbles.push_back( b );
-////            for ( Bubble* b : branch_[0] ) if ( tStart <= b->start_ || b->start_ + b->len_ <= tStart+tLen ) bubbles.push_back( b );
-//            if ( snps.empty() && bubbles.empty() ) continue;
-//            SnpAlignment align( template_, cm->node_->read_->seq_, tStart, tLen, d ? cm->range_[1]+1 : 0, cm->unmapped( d ), snps, bubbles );
-//            SnpAlignResult result = align.align( d, !d );
-//            if ( !result.len_ ) continue;
-//            updateMapped( cm, result, d );
-////            cm->updateCoords( result, d );
-//            
-//            
-////            int limits[2]{ cm->coord_[d] + ( d ? 1 : -cm->excess( 0 )-5 ), cm->coord_[d] + ( d ? cm->excess( 1 )+5 : 0 ) };
-////            int snps[2]{ (int)snps_.size(), 0 };
-////            for ( int i = 0; i < snps_.size() && snps_[i].start_ < limits[1]; i++ ) if ( limits[0] <= snps_[i].start_ && snps_[i].start_+snps_[i].len_ <= limits[1] )
-////            {
-////                snps[0] = min( snps[0], i );
-////                snps[1] = max( snps[1], i );
-////            }
-////            if ( snps[1] < snps[0] ) continue;
-////            AlignResult* result = NULL;
-////
-////            int tLen = min( cm->excess( d )+10, d ? (int)template_.size()-cm->coord_[1]-1 : cm->coord_[0] );
-////            int tStart = d ? cm->coord_[1]+1 : cm->coord_[0]-tLen;
-////
-////            auto it = aligns[d].find( cm );
-////            if ( it != aligns[d].end() ) result = &it->second;
-////            else
-////            {
-////                AlignResult ar = Alignment( template_, cm->node_->read_->seq_, tStart, tLen, d ? cm->range_[1]+1 : 0, cm->excess( d ) ).align( d, !d );
-////                auto ins = aligns[d].insert( make_pair( cm, ar ) );
-////                result = &ins.first->second;
-////            }
-////            
-////            int coord = tStart + ( d ? 0 : tLen-1 ), excess = cm->excess( d ), score = 0;
-////            for ( int i = d ? 0 : result->s_[0].size()-1; i >= 0 && i < result->s_[0].size(); d ? i++ : i-- )
-////            {
-////                int gap[2]{ 0 };
-////                for ( int s : { 0, 1 } ) for ( ; result->s_[s][i] == '-' && i >= 0 && i < result->s_[0].size(); d ? i++ : i-- ) gap[s]++;
-////                if ( i < 0 || i >= result->s_[0].size() ) break;
-////                assert( !gap[0] && !gap[1] );
-////
-////                bool match = result->s_[0][i] == result->s_[1][i];
-////                score += match ? 1 : -4;
-////            }
-//
-////            if ( !d ) for ( ; i < result->s_[0].size() && result->s_[1] == '-' && result->s_[0] != '-'; i++ ) coord++;
-////            for ( ; i < result->s_[0].size() && ( !d || excess > 0 ); i++ ) if ( result->s_[0][i] != result->s_[1][i] )
-////            {
-////
-////            }
-////            assert( false );
-//        }
-//    }
 }
 
 ConMap* Consensus::getConMap( Match* m )
@@ -630,11 +553,10 @@ void Consensus::mapKmers()
     }
 }
 
-bool Consensus::merge( Consensus* rhs, AlignResult& result, Match* l, Match* r )
+bool Consensus::merge( Consensus* rhs )
 {
     assert( tar_ && tar_ == rhs->tar_ );
     coord_[1] = max( coord_[1], rhs->coord_[1] );
-//    template_ += tar_->seq_.substr( coord_[1], rhs->coord_[1]- coord_[1] );
     maps_.insert( maps_.end(), rhs->maps_.begin(), rhs->maps_.end() );
     snps_.insert( snps_.end(), rhs->snps_.begin(), rhs->snps_.end() );
     bubble_.insert( bubble_.end(), rhs->bubble_.begin(), rhs->bubble_.end() );
@@ -644,8 +566,17 @@ bool Consensus::merge( Consensus* rhs, AlignResult& result, Match* l, Match* r )
     rhs->maps_.clear();
     rhs->snps_.clear();
     rhs->bubble_.clear();
-    for ( int d : { 0, 1 } ) rhs->branch_[d].clear();
-    
+    for ( int d : { 0, 1 } ) rhs->branch_[d].clear(); 
+    sort( bubble_.begin(), bubble_.end(), []( Bubble* a, Bubble* b ){ return a->start_ < b->start_; } );
+    sort( snps_.begin(), snps_.end(), []( SNPs* a, SNPs* b ){ return a->start_ < b->start_; } );
+    return true;
+}
+
+bool Consensus::merge( Consensus* rhs, AlignResult& result, Match* l, Match* r )
+{
+    assert( coord_[1] <= rhs->coord_[0] );
+    merge( rhs );
+    ConMap* bridgeMaps[2]{ getConMap( l ), getConMap( r ) };
     Bubble* bridge = new Bubble( result, getConMap( l ), getConMap( r ) );
     int coords[2]{ bridge->start_, bridge->start_+bridge->len_ };
     vector<ConMap*> maps[2];
@@ -658,10 +589,18 @@ bool Consensus::merge( Consensus* rhs, AlignResult& result, Match* l, Match* r )
         if ( d ? coords[0] <= cm->coord_[1] : cm->coord_[0] < coords[1] ) cm->unsetMappedEnd( cm->getRange( coords[!d], d ), &bubble_, &snps_, d );
         maps[!d].push_back( cm );
     }
-    assert( !maps[0].empty() && !maps[1].empty() );
+    for ( int i = 0; i < bubble_.size(); i++ ) if ( bubble_[i]->cleanup() && bubble_[i]->maps_.empty() )
+    {
+        delete bubble_[i];
+        bubble_.erase( bubble_.begin() + i-- );
+    }
+    assert( ( !maps[0].empty() || bridgeMaps[0]->range_[1]+1 == bridgeMaps[0]->node_->size() ) && ( !maps[1].empty() || !bridgeMaps[0]->range_[0] ) );
     bubble_.push_back( bridge );
-    for ( int d : { 0, 1 } ) for ( ConMap* cm : maps[d] ) foldEnd( cm, NULL, true, !d );
+    for ( int d : { 0, 1 } ) for ( ConMap* cm : maps[d] ) foldEnd( cm, NULL, true, false, !d );
     
+    sort( bubble_.begin(), bubble_.end(), []( Bubble* a, Bubble* b ){ return a->start_ < b->start_; } );
+    sort( snps_.begin(), snps_.end(), []( SNPs* a, SNPs* b ){ return a->start_ < b->start_; } );
+    assert( !bridge->maps_.empty() );
     Bubble::test( bubble_ );
 //    addBubble( l, r, result );
 //    Bubble::test( bubble_ );
@@ -673,6 +612,7 @@ void Consensus::resolveBubbles()
     int iS = 0, iB = 0;
     sort( bubble_.begin(), bubble_.end(), []( Bubble* a, Bubble* b ){ return a->start_ == b->start_ ? a->start_+a->len_ > b->start_+b->len_ : a->start_ < b->start_; } );
     sort( snps_.begin(), snps_.end(), []( SNPs* a, SNPs* b ){ return a->start_ == b->start_ ? a->start_+a->len_ > b->start_+b->len_ : a->start_ < b->start_; } );
+    vector<ConMap*> orphans;
     for ( int i = 0; i < bubble_.size(); i++ )
     {
         Bubble* b = bubble_[i];
@@ -684,16 +624,26 @@ void Consensus::resolveBubbles()
         for ( int j = iB; j < bubble_.size() && ( bubble_[j]->start_ < b->start_ + b->len_ ); j++ ) if ( bubble_[j] != b ) bubs.push_back( bubble_[j] );
         if ( snps.empty() && bubs.empty() && b->bubs_.empty() ) continue;
         if ( !b->consolidate( snps, bubs, bubble_, tar_->seq_ ) ) continue;
-        if ( b->maps_.empty() )
+        if ( b->retract( orphans ) )
         {
-            assert( b->bubs_.empty() );
             delete b;
             bubble_.erase( bubble_.begin() + i );
         }
         sort( bubble_.begin(), bubble_.end(), []( Bubble* a, Bubble* b ){ return a->start_ == b->start_ ? a->start_+a->len_ > b->start_+b->len_ : a->start_ < b->start_; } );
         i--;
     }
-    
+    Bubble::test( bubble_ );
+    for ( ConMap* cm : orphans ) for ( int d : { 0, 1 } ) if ( cm->unmapped( d ) )
+    {
+        vector<Bubble*> bubs;
+        vector<SNPs*> snps;
+        for ( Bubble* b : bubble_ ) if ( d ? cm->coord_[1] < b->start_ : b->start_+b->len_ <= cm->coord_[0] ) bubs.push_back( b );
+        for ( SNPs* s : snps_ ) if ( d ? cm->coord_[1] < s->start_ : s->start_+s->len_ <= cm->coord_[0] ) snps.push_back( s );
+        cm->updateMapped( d ? cm->node_->size()-1 : 0 );
+        cm->unsetMappedEnd( d ? cm->range_[1]+1 : cm->range_[0]-1, &bubs, &snps, d );
+        foldEnd( cm, NULL, false, true, d );
+    }
+    Bubble::test( bubble_ );
 //    int iM = 0;
 //    sort( maps_.begin(), maps_.end(), []( ConMap* a, ConMap* b ){ return a->coord_[0] == b->coord_[0] ? a->coord_[1] > b->coord_[1] : a->coord_[0] < b->coord_[0]; } );
 //    for ( Bubble* b : bubble_ )
@@ -833,11 +783,17 @@ void Consensus::setBubbles()
     }
 }
 
+void Consensus::reSort( vector<Consensus*>& cs )
+{
+    sort( cs.begin(), cs.end(), []( Consensus* a, Consensus* b ){ return a->coord_[0] == b->coord_[0] ? a->coord_[1] > b->coord_[1] : a->coord_[0] < b->coord_[0];});
+}
+
 void Consensus::updateMapped( ConMap* cm, SnpAlignResult& result, int base, bool drxn )
 {
     int coord[2]{ base, drxn ? cm->range_[1]+1 : 0 };
     int badCoord[2]{ coord[0], coord[1] }, badLen = 0;
     string badStr = "";
+    vector<int> updated;
     
     vector<SnpAlignResult::BubbleAlignCoords>::iterator it = result.bubbles_.begin();
     for ( int i = 0; i < result.s_[0].size(); i++ )
@@ -848,8 +804,9 @@ void Consensus::updateMapped( ConMap* cm, SnpAlignResult& result, int base, bool
             if ( it->snps_ ) it->snps_->addMatch( result, *it, cm, i, coord[1] );
             coord[0] = base + it->coord_[1];
         }
-//        cout << tar_->seq_.substr( coord[0], 10 ) << endl;
-//        cout << result.s_[0].substr( i ) << endl;
+        if ( result.s_[1][i] != '-' && ( drxn ? i < result.start_+result.len_ : i >= result.start_ ) ) updated.push_back( coord[1] );
+        if ( i < result.start_ && drxn && result.s_[1][i] != '-' ) cm->updateCoord( coord[0], coord[1] );
+        if ( result.start_+result.len_ <= i && !drxn && result.s_[1][i] != '-' ) cm->updateCoord( coord[0], coord[1] );
         if ( i >= result.start_ && i < result.start_+result.len_ )
         {
             cm->updateCoord( coord[0], coord[1] );
@@ -881,7 +838,7 @@ void Consensus::updateMapped( ConMap* cm, SnpAlignResult& result, int base, bool
     }
     if ( cm->coord_[0] < coord_[0] ) coord_[0] = cm->coord_[0];
     if ( coord_[1] < cm->coord_[1] ) coord_[1] = cm->coord_[1];
-    cm->sanitise();
+    cm->sanitise( updated );
 //    vector<int> starts;
 //    
 //    bool bubbled = false;

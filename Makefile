@@ -33,9 +33,10 @@ SRCS =  \
 	target.cpp \
 	timer.cpp \
 	transform.cpp \
+	transform_binary.cpp \
 	transform_bwt.cpp \
-	transform_structs.cpp \
-	transform_binary.cpp
+	transform_files.cpp \
+	transform_structs.cpp
 
 
 # C++ compiler

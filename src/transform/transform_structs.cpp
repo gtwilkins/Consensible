@@ -23,7 +23,7 @@
 #include <iostream>
 
 ReadFile::ReadFile( string filename, int baseReadLen, int minScore )
-: readLen( baseReadLen ), minPhred( minScore )
+: fn( filename ), readLen( baseReadLen ), minPhred( minScore )
 {
     fh.open( filename );
     

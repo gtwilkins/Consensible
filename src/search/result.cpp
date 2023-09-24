@@ -63,8 +63,8 @@ void Result::assemble( string& outPrefix )
         if ( excess == "fasta" || excess == "fa" ) ofn = outPrefix;
     }
     
-    cout << endl << to_string( reads_.size() ) << " reads were found to match the query sequence." << endl;
-    cout << to_string( consensus.size() ) << " consensus sequences were assembled!" << endl;
+    cout << "    " << to_string( reads_.size() ) << " reads were found to match the query sequence." << endl;
+    cout << "    " << to_string( consensus.size() ) << " consensus sequences were assembled!" << endl;
     cout << endl << "Writing results to: " << ofn << endl;
     ofstream ofs( ofn );
     for ( int i = 0; i < consensus.size(); i++ )

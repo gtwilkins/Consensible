@@ -37,19 +37,18 @@ void printUsage()
     cout << endl << "Usage:" << endl;
     cout << "\tconsensible [args]" << endl;
     cout << endl << "Arguments:" << endl;
-    cout << "\t-i\t(Optional) Input shotgun sequence file(s)." << endl;
-    cout << "\t-p\t(Required) Prefix for indexed shotgun sequence files. See notes for details." << endl;
+    cout << "\t-i\t(Required) Input shotgun sequence file(s)." << endl;
     cout << "\t-q\t(Required) Query file containing one or more query sequences." << endl;
-    cout << "\t-o\t(Optional) Output filename prefix." << endl;
-    cout << endl << "Example commands:" << endl;
-    cout << "\tconsensible -i /myinputs/project101_data.fa -p /mytempdata/project101 -q /myinput/interesting_gene.fa -o /myoutput/interesting_gene_result.fa" << endl;
-    cout << endl << "\tconsensible -p /mytempdata/project101 -q /myinput/interesting_gene.fa -o /myoutput/interesting_gene_result.fa" << endl;
+    cout << "\t-w\t(Required) Working directory for temporary index files." << endl;
+    cout << "\t-o\t(Optional) Output directory for results." << endl;
+    cout << endl << "Example command:" << endl;
+    cout << "\tconsensible -i /myinputs/project101_data.fa -q /myinputs/interesting_gene.fa -w /mytempdata -o /myoutput" << endl;
     cout << endl << "Explanation:" << endl;
     cout << "\tConsensible searches for reads among shotgun sequencing data (-i) that match" << endl;
     cout << "\tone or more query sequences (-q). It will then attempt to assmble overlapping" << endl;
     cout << "\treads among the matches into one or more consensus sequences that are output" << endl;
     cout << "\tas a fasta file (-o). However, consensible must first create an index of the" << endl;
-    cout << "\tshotgun sequencing data (-p)." << endl;
+    cout << "\tshotgun sequencing data (-w)." << endl;
     cout << endl << "Notes:" << endl;
     cout << "\t- Accepted read file formats are fasta, fastq or a list of sequences, one per line." << endl;
     cout << "\t- Once shotgun sequencing data (-i) has been indexed, only the index prefix (-p) need be provided on subsequent queries (-q)." << endl;
@@ -70,12 +69,9 @@ int main( int argc, char** argv )
             int i = 0;
             while ( arguments.setBwtPrefix() )
             {
-//                if ( i >= 29 )
-//                {
-                    Index idx( arguments );
-                    arguments.updateFileIndex();
-                    Assemble ass( arguments );
-//                }
+                Index idx( arguments );
+                arguments.updateFileIndex();
+                Assemble ass( arguments );
                 i++;
             }
         }

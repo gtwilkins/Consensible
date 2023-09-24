@@ -26,6 +26,68 @@
 //#include <chrono>
 //#include <iomanip>
 
+//BwtCycler::BwtCycler( PreprocessFiles* filenames )
+//: fns( filenames )
+//{
+//    // Create buffers
+//    inBwtBuff = new uint8_t[BWT_BUFFER];
+//    outBwtBuff = new uint8_t[BWT_BUFFER];
+//    inInsBuff = new uint8_t[BWT_BUFFER];
+//    inEndBuff = new ReadId[IDS_BUFFER];
+//    outEndBuff = new ReadId[IDS_BUFFER];
+//    for ( int i ( 0 ); i < 4; i++ )
+//    {
+//        inIdsBuff[i] = new ReadId[IDS_BUFFER];
+//        outInsBuff[i] = new uint8_t[BWT_BUFFER];
+//        for ( int j ( 0 ); j < 5; j++ )
+//        {
+//            outIdsBuff[i][j] = new ReadId[IDS_BUFFER];
+//        }
+//    }
+//    inIdsBuff[4] = new ReadId[IDS_BUFFER];
+//    
+//    samePosFlag = (CharId)1 << 63;
+//    samePosMask = ~samePosFlag;
+//    sameByteFlag = (uint8_t)1 << 7;
+//    sameByteMask = ~sameByteFlag;
+//    
+//    isFinal = isPenultimate = false;
+//    
+//    FILE* bin = fns->getBinary( true, false );
+//    readEndBwt = writeEndBwt = readEndIds = writeEndIds = false;
+//    fseek( bin, 1, SEEK_SET );
+//    fread( &id, 8, 1, bin );
+//    fclose( bin );
+//    
+//    memset( &isRunArray, false, 256 );
+//    memset( &readArray[0], 0, 64 );
+//    memset( &readArray[64], 1, 64 );
+//    memset( &readArray[128], 2, 64 );
+//    memset( &readArray[192], 3, 64 );
+//    insMax1 = 256;
+//    insMax2 = insMax1 * insMax1;
+//    insMax4 = insMax2 * insMax2;
+//    sapMax1 = 256;
+//    sapMax2 = sapMax1 * 256;
+//    sapMax3 = sapMax2 * 256;
+//    for ( int i ( 0 ); i < 4; i++ )
+//    {
+//        for ( int j ( 0 ); j < 64; j++ )
+//        {
+//            runLenArray[ i * 64 + j] = j + 1;
+//        }
+//        isRunArray[ i * 64 + 63 ] = true;
+//        writeBaseBit[i] = 64 * i;
+//        writeMaxBase[i] = 63;
+//        writeFullByte[i] = 64 * i + 63;
+//    }
+//    
+//    for ( int i = 0; i < 8; i++ )
+//    {
+//        endBitArray[i] = 1 << ( 7 - i );
+//    }
+//}
+
 BwtCycler::BwtCycler( PreprocessFiles* filenames )
 : fns( filenames )
 {
@@ -37,14 +99,8 @@ BwtCycler::BwtCycler( PreprocessFiles* filenames )
     outEndBuff = new ReadId[IDS_BUFFER];
     for ( int i ( 0 ); i < 4; i++ )
     {
-        inIdsBuff[i] = new ReadId[IDS_BUFFER];
         outInsBuff[i] = new uint8_t[BWT_BUFFER];
-        for ( int j ( 0 ); j < 5; j++ )
-        {
-            outIdsBuff[i][j] = new ReadId[IDS_BUFFER];
-        }
     }
-    inIdsBuff[4] = new ReadId[IDS_BUFFER];
     
     samePosFlag = (CharId)1 << 63;
     samePosMask = ~samePosFlag;
@@ -88,6 +144,25 @@ BwtCycler::BwtCycler( PreprocessFiles* filenames )
     }
 }
 
+//BwtCycler::~BwtCycler()
+//{
+//    if ( inBwtBuff ) delete[] inBwtBuff;
+//    if ( outBwtBuff ) delete[] outBwtBuff;
+//    if ( inInsBuff ) delete[] inInsBuff;
+//    if ( inEndBuff ) delete[] inEndBuff;
+//    if ( outEndBuff ) delete[] outEndBuff;
+//    for ( int i ( 0 ); i < 4; i++ )
+//    {
+//        if ( inIdsBuff[i] ) delete[] inIdsBuff[i];
+//        if ( outInsBuff[i] ) delete[] outInsBuff[i];
+//        for ( int j ( 0 ); j < 5; j++ )
+//        {
+//            if ( outIdsBuff[i][j] ) delete[] outIdsBuff[i][j];
+//        }
+//    }
+//    if ( inIdsBuff[4] ) delete[] inIdsBuff[4];
+//}
+
 BwtCycler::~BwtCycler()
 {
     if ( inBwtBuff ) delete[] inBwtBuff;
@@ -97,14 +172,8 @@ BwtCycler::~BwtCycler()
     if ( outEndBuff ) delete[] outEndBuff;
     for ( int i ( 0 ); i < 4; i++ )
     {
-        if ( inIdsBuff[i] ) delete[] inIdsBuff[i];
         if ( outInsBuff[i] ) delete[] outInsBuff[i];
-        for ( int j ( 0 ); j < 5; j++ )
-        {
-            if ( outIdsBuff[i][j] ) delete[] outIdsBuff[i][j];
-        }
     }
-    if ( inIdsBuff[4] ) delete[] inIdsBuff[4];
 }
 
 void BwtCycler::finish( uint8_t cycle )
@@ -136,6 +205,42 @@ void BwtCycler::finish( uint8_t cycle )
     fwrite( &charCounts, 8, 4, outBwt );
     fclose( outBwt );
 }
+
+//void BwtCycler::finishIter( uint8_t i )
+//{
+//    if ( insLeft ) readNextPos();
+//    
+//    while( insLeft )
+//    {
+//        if ( currPos == nextPos )
+//        {
+//            writeEnd();
+//            if ( --insLeft ) readNextPos();
+//        }
+//        else
+//        {
+//            writeBwt();
+//        }
+//    }
+//    
+//    nextPos = -1;
+//    if ( currSplit )
+//    {
+//        writeRun( splitChar, splitRun );
+//        currSplit = false;
+//        if ( splitChar == 4 ) rewriteEnd( splitRun );
+//    }
+//    
+//    while ( currPos < charSizes[i] )
+//    {
+//        writeBwt();
+//    }
+//    assert( currPos >= charSizes[i] );
+//    currPos -= charSizes[i];
+//    
+//    fclose( inIns );
+//    fclose( inIds[4] );
+//}
 //
 void BwtCycler::finishIter( uint8_t i )
 {
@@ -170,8 +275,48 @@ void BwtCycler::finishIter( uint8_t i )
     currPos -= charSizes[i];
     
     fclose( inIns );
-    fclose( inIds[4] );
 }
+
+//void BwtCycler::flush( uint8_t cycle )
+//{
+//    // Flush buffers and close write files
+//    writeLast();
+//    fwrite( outBwtBuff, 1, pOutBwt, outBwt );
+//    fclose( outBwt );
+//    fwrite( outEndBuff, 4, pOutEnd, outEnd );
+//    fclose( outEnd );
+//    
+//    for ( int i ( 0 ); i < 4; i++ )
+//    {
+//        writeInsBuff( i );
+//        fclose( outIns[i] );
+//        for ( int j ( 0 ); j < 5; j++ )
+//        {
+//            fwrite( outIdsBuff[i][j], 4, pOutIds[i][j], outIds[i][j] );
+//            fclose( outIds[i][j] );
+//        }
+//    }
+//    
+//    // Edit in counts
+//    fns->setCyclerUpdate( outBwt, outEnd, outIns, outIds, cycle );
+//    fseek( outBwt, 9, SEEK_SET );
+//    fwrite( &bwtCount, 8, 1, outBwt );
+//    fwrite( &charCounts, 8, 4, outBwt );
+//    fclose( outBwt );
+//    fwrite ( &endCount, 4, 1, outEnd );
+//    fclose( outEnd );
+//    
+//    for ( int i ( 0 ); i < 4; i++ )
+//    {
+//        fwrite( &insCounts[i], 8, 1, outIns[i] );
+//        fclose( outIns[i] );
+//        for ( int j ( 0 ); j < 5; j++ )
+//        {
+//            fwrite( &idsCounts[i][j], 4, 1, outIds[i][j] );
+//            fclose( outIds[i][j] );
+//        }
+//    }
+//}
 
 void BwtCycler::flush( uint8_t cycle )
 {
@@ -186,15 +331,11 @@ void BwtCycler::flush( uint8_t cycle )
     {
         writeInsBuff( i );
         fclose( outIns[i] );
-        for ( int j ( 0 ); j < 5; j++ )
-        {
-            fwrite( outIdsBuff[i][j], 4, pOutIds[i][j], outIds[i][j] );
-            fclose( outIds[i][j] );
-        }
+        for ( int j ( 0 ); j < 5; j++ ) outIds[i][j].flush();
     }
     
     // Edit in counts
-    fns->setCyclerUpdate( outBwt, outEnd, outIns, outIds, cycle );
+    fns->setCyclerUpdate( outBwt, outEnd, outIns, cycle );
     fseek( outBwt, 9, SEEK_SET );
     fwrite( &bwtCount, 8, 1, outBwt );
     fwrite( &charCounts, 8, 4, outBwt );
@@ -206,11 +347,6 @@ void BwtCycler::flush( uint8_t cycle )
     {
         fwrite( &insCounts[i], 8, 1, outIns[i] );
         fclose( outIns[i] );
-        for ( int j ( 0 ); j < 5; j++ )
-        {
-            fwrite( &idsCounts[i][j], 4, 1, outIds[i][j] );
-            fclose( outIds[i][j] );
-        }
     }
 }
 
@@ -254,19 +390,65 @@ void BwtCycler::prepIn()
     memset( outSapCount, 0, 20 );
 }
 
+//void BwtCycler::prepIter()
+//{
+//    fread( &insLeft, 8, 1, inIns );
+//    pInIns = BWT_BUFFER;
+//    nextPos = insLeft ? 0 : -1;
+//    
+//    for ( int j ( 0 ); j < 5; j++ )
+//    {
+//        if ( isFinal && j < 4 ) continue;
+//        fread( &idsLeft[j], 4, 1, inIds[j] );
+//        pInIds[j] = IDS_BUFFER;
+//    }
+//}
+
 void BwtCycler::prepIter()
 {
     fread( &insLeft, 8, 1, inIns );
     pInIns = BWT_BUFFER;
     nextPos = insLeft ? 0 : -1;
-    
-    for ( int j ( 0 ); j < 5; j++ )
-    {
-        if ( isFinal && j < 4 ) continue;
-        fread( &idsLeft[j], 4, 1, inIds[j] );
-        pInIds[j] = IDS_BUFFER;
-    }
 }
+
+//void BwtCycler::prepOut()
+//{
+//    anyEnds = false;
+//    if ( !chars )
+//    {
+//        isPenultimate = true;
+//        nextChar = 4;
+//    }
+//    else if ( ends )
+//    {
+//        anyEnds = true;
+//        writeEndIds = true;
+//        if ( !writeEndBwt ) setWriteEnds();
+//    }
+//    endCount = 0;
+//    
+//    for ( int i ( 0 ); i < 4; i++ )
+//    {
+//        insCounts[i] = 0;
+//        pOutIns[i] = 0;
+//        fwrite( &insCounts[i], 8, 1, outIns[i] );
+//        
+//        for ( int j ( 0 ); j < 5; j++ )
+//        {
+//            idsCounts[i][j] = 0;
+//            pOutIds[i][j] = 0;
+//            fwrite( &idsCounts[i][j], 4, 1, outIds[i][j] );
+//        }
+//    }
+//    
+//    // Set place holders for this cycle size
+//    fwrite( &id, 8, 1, outBwt );
+//    fwrite( &writeEndBwt, 1, 1, outBwt );
+//    fwrite( &bwtCount, 8, 1, outBwt );
+//    fwrite( &charCounts, 8, 5, outBwt );
+//    fwrite( &basePos, 4, 4, outBwt );
+//    fwrite( &endCount, 4, 1, outEnd );
+//}
 
 void BwtCycler::prepOut()
 {
@@ -289,13 +471,6 @@ void BwtCycler::prepOut()
         insCounts[i] = 0;
         pOutIns[i] = 0;
         fwrite( &insCounts[i], 8, 1, outIns[i] );
-        
-        for ( int j ( 0 ); j < 5; j++ )
-        {
-            idsCounts[i][j] = 0;
-            pOutIds[i][j] = 0;
-            fwrite( &idsCounts[i][j], 4, 1, outIds[i][j] );
-        }
     }
     
     // Set place holders for this cycle size
@@ -356,17 +531,32 @@ void BwtCycler::readInsertBuff()
     pInIns = 0;
 }
 
+//void BwtCycler::readNextId()
+//{
+//    // Refresh IDs buffer if necessary
+//    if ( pInIds[thisChar] == IDS_BUFFER )
+//    {
+//        fread( inIdsBuff[thisChar], 4, min( idsLeft[thisChar], IDS_BUFFER ), inIds[thisChar] );
+//        pInIds[thisChar] = 0;
+//    }
+//
+//    // Set id and next character
+//    nextId = inIdsBuff[thisChar][ pInIds[thisChar]++ ];
+//    if ( anyEnds && ( ends[ (nextId / 2) / 8 ] & endBitArray[ (nextId / 2) % 8 ] ) )
+//    {
+//        nextChar = 4;
+//    }
+//    else if ( !isPenultimate )
+//    {
+//        nextChar = byteToInt[ nextId & 0x3 ][ chars[ nextId / 4 ] ];
+//    }
+//    --idsLeft[thisChar];
+//}
+
 void BwtCycler::readNextId()
 {
-    // Refresh IDs buffer if necessary
-    if ( pInIds[thisChar] == IDS_BUFFER )
-    {
-        fread( inIdsBuff[thisChar], 4, min( idsLeft[thisChar], IDS_BUFFER ), inIds[thisChar] );
-        pInIds[thisChar] = 0;
-    }
-
     // Set id and next character
-    nextId = inIdsBuff[thisChar][ pInIds[thisChar]++ ];
+    nextId = inIds[thisChar].readNext();
     if ( anyEnds && ( ends[ (nextId / 2) / 8 ] & endBitArray[ (nextId / 2) % 8 ] ) )
     {
         nextChar = 4;
@@ -375,7 +565,6 @@ void BwtCycler::readNextId()
     {
         nextChar = byteToInt[ nextId & 0x3 ][ chars[ nextId / 4 ] ];
     }
-    --idsLeft[thisChar];
 }
 
 void BwtCycler::readNextPos()
@@ -474,6 +663,53 @@ void BwtCycler::rewriteEnd( ReadId runLen )
     }
 }
 
+//void BwtCycler::runIter( uint8_t i )
+//{
+//    if ( insLeft ) readNextPos();
+//    
+//    while ( insLeft )
+//    {
+//        if ( currPos == nextPos )
+//        {
+//            if ( nextSame )
+//            {
+//                writeSame();
+//            }
+//            else
+//            {
+//                writeNext();
+//            }
+//            
+//            if ( --insLeft ) readNextPos();
+//        }
+//        else
+//        {
+//            writeBwt();
+//        }
+//    }
+//    
+//    nextPos = -1;
+//    if ( currSplit )
+//    {
+//        writeRun( splitChar, splitRun );
+//        currSplit = false;
+//        if ( splitChar == 4 ) rewriteEnd( splitRun );
+//    }
+//    
+//    while ( currPos < charSizes[i] )
+//    {
+//        writeBwt();
+//    }
+//    assert( currPos >= charSizes[i] );
+//    currPos -= charSizes[i];
+//    
+//    fclose( inIns );
+//    for ( int j ( 0 ); j < 4; j++ )
+//    {
+//        fclose( inIds[j] );
+//    }
+//}
+
 void BwtCycler::runIter( uint8_t i )
 {
     if ( insLeft ) readNextPos();
@@ -515,10 +751,6 @@ void BwtCycler::runIter( uint8_t i )
     currPos -= charSizes[i];
     
     fclose( inIns );
-    for ( int j ( 0 ); j < 4; j++ )
-    {
-        fclose( inIds[j] );
-    }
 }
 
 void BwtCycler::setReadEnds()
@@ -559,11 +791,11 @@ void BwtCycler::setWriteEnds()
     writeEndBwt = true;
 }
 
-void BwtCycler::writeIdsToFile( uint8_t i, uint8_t j )
-{
-    fwrite( outIdsBuff[i][j], 4, pOutIds[i][j], outIds[i][j] );
-    pOutIds[i][j] = 0;
-}
+//void BwtCycler::writeIdsToFile( uint8_t i, uint8_t j )
+//{
+//    fwrite( outIdsBuff[i][j], 4, pOutIds[i][j], outIds[i][j] );
+//    pOutIds[i][j] = 0;
+//}
 
 void BwtCycler::writeBwt()
 {
@@ -641,11 +873,6 @@ void BwtCycler::writeEnd()
     
     while ( thisSap-- )
     {
-        if ( pInIds[4] == IDS_BUFFER )
-        {
-            fread( inIdsBuff[4], 4, min( IDS_BUFFER, idsLeft[4] ), inIds[4] );
-            pInIds[4] = 0;
-        }
         if ( pOutEnd == IDS_BUFFER )
         {
             fwrite( outEndBuff, 4, IDS_BUFFER, outEnd );
@@ -653,7 +880,7 @@ void BwtCycler::writeEnd()
         }
         
 //        dupeArray[dupeCount++] = inIdsBuff[4][ pInIds[4] ];
-        outEndBuff[ pOutEnd++ ] = inIdsBuff[4][ pInIds[4]++ ];
+        outEndBuff[ pOutEnd++ ] = inIds[4].readNext();
     }
     
 //    if ( isDupe )
@@ -740,6 +967,34 @@ void BwtCycler::writeNext()
     writeRun( thisChar, 1 );
 }
 
+//void BwtCycler::writeNextId()
+//{
+//    if ( thisChar == 4 )
+//    {
+//        if ( pOutEnd == IDS_BUFFER )
+//        {
+//            fwrite( outEndBuff, 4, IDS_BUFFER, outEnd );
+//            pOutEnd = 0;
+//        }
+//        
+//        outEndBuff[ pOutEnd++ ] = nextId;
+//        ++endCount;
+//    }
+//    else
+//    {
+//        // Write IDs buffer to file if full
+//        if ( pOutIds[thisChar][nextChar] == IDS_BUFFER )
+//        {
+//            fwrite( outIdsBuff[thisChar][nextChar], 4, IDS_BUFFER, outIds[thisChar][nextChar] );
+//            pOutIds[thisChar][nextChar] = 0;
+//        }
+//
+//        // Write id to buffer
+//        outIdsBuff[thisChar][nextChar][ pOutIds[thisChar][nextChar]++ ] = nextId;
+//        idsCounts[thisChar][nextChar]++;
+//    }
+//}
+
 void BwtCycler::writeNextId()
 {
     if ( thisChar == 4 )
@@ -755,16 +1010,7 @@ void BwtCycler::writeNextId()
     }
     else
     {
-        // Write IDs buffer to file if full
-        if ( pOutIds[thisChar][nextChar] == IDS_BUFFER )
-        {
-            fwrite( outIdsBuff[thisChar][nextChar], 4, IDS_BUFFER, outIds[thisChar][nextChar] );
-            pOutIds[thisChar][nextChar] = 0;
-        }
-
-        // Write id to buffer
-        outIdsBuff[thisChar][nextChar][ pOutIds[thisChar][nextChar]++ ] = nextId;
-        idsCounts[thisChar][nextChar]++;
+        outIds[thisChar][nextChar].writeNext( nextId );
     }
 }
 

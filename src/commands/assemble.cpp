@@ -53,12 +53,15 @@ Assemble::Assemble( Arguments& args )
     {
         SequenceFile file( ifn );
         InputSequence is;
+        int queryCount = 0;
         while ( file.getSeq( is ) )
         {
             Target* tar = result.addTarget( is.header_, is.seq_ );
             for ( Read r : MatchQuery( is.seq_, ir_, errors ).yield( qb_ ) ) result.addMatch( tar, r.id_, r.seq_, r.coords_[0] );
+            queryCount++;
             break;
         }
+        cout << "Querying sequence data with " << to_string( queryCount ) << ( queryCount == 1 ? " query" : "queries") << " from: " << ifn << endl;
 //        ifstream ifs( ifn );
 //        while ( getSeq( ifs, header, seq ) )
 //        {
@@ -68,7 +71,7 @@ Assemble::Assemble( Arguments& args )
 //        }
 //        break;
     }
-    result.outputFullAlign( args.outPrefix_ );
+//    result.outputFullAlign( args.outPrefix_ );
     result.assemble( args.outPrefix_ );
     delete fns;
 }

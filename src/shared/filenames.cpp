@@ -249,7 +249,25 @@ void PreprocessFiles::setBinaryWrite( FILE* &outBin, FILE* &outBwt, FILE* &outEn
     }
 }
 
-void PreprocessFiles::setCycler( FILE* &inBwt, FILE* &outBwt, FILE* &inEnd, FILE* &outEnd, FILE* (&outIns)[4], FILE* (&outIds)[4][5], uint8_t cycle )
+//void PreprocessFiles::setCycler( FILE* &inBwt, FILE* &outBwt, FILE* &inEnd, FILE* &outEnd, FILE* (&outIns)[4], FILE* (&outIds)[4][5], uint8_t cycle )
+//{
+//    uint8_t iIn = cycle & 1;
+//    
+//    inBwt = getReadPointer( tmpBwt[iIn], false );
+//    outBwt = getWritePointer( tmpBwt[!iIn] );
+//    inEnd = getReadPointer( tmpEnd[iIn], false );
+//    outEnd = getWritePointer( tmpEnd[!iIn] );
+//    for ( int i ( 0 ); i < 4; i++ )
+//    {
+//        outIns[i] = getReadPointer( tmpIns[!iIn][i], true );
+//        for ( int j ( 0 ); j < 5; j++ )
+//        {
+//            outIds[i][j] = getReadPointer( tmpIds[!iIn][i][j], true );
+//        }
+//    }
+//}
+
+void PreprocessFiles::setCycler( FILE* &inBwt, FILE* &outBwt, FILE* &inEnd, FILE* &outEnd, FILE* (&outIns)[4], TransFileLarge (&outIds)[4][5], uint8_t cycle )
 {
     uint8_t iIn = cycle & 1;
     
@@ -262,37 +280,30 @@ void PreprocessFiles::setCycler( FILE* &inBwt, FILE* &outBwt, FILE* &inEnd, FILE
         outIns[i] = getReadPointer( tmpIns[!iIn][i], true );
         for ( int j ( 0 ); j < 5; j++ )
         {
-            outIds[i][j] = getReadPointer( tmpIds[!iIn][i][j], true );
+            outIds[i][j].set( tmpIds[!iIn][i][j], false );
         }
     }
 }
 
-//void PreprocessFiles::setCycler( FILE* &inBwt, FILE* &outBwt, FILE* &inEnd, FILE* &outEnd, FILE* (&outIns)[4], FILE* (&outIds)[4][5], uint8_t cycle )
+//void PreprocessFiles::setCyclerIter( FILE* &inIns, FILE* (&inIds)[5], uint8_t cycle, uint8_t i )
 //{
 //    uint8_t iIn = cycle & 1;
 //    
-//    inBwt = getReadPointer( tmpBwt[iIn], false );
-//    outBwt = getWritePointer( tmpBwt[!iIn] );
-//    inEnd = getReadPointer( tmpEnd[iIn], false );
-//    outEnd = getWritePointer( tmpEnd[!iIn] );
-//    for ( int i ( 0 ); i < 4; i++ )
+//    inIns = getReadPointer( tmpIns[iIn][i], false );
+//    for ( int j ( 0 ); j < 5; j++ )
 //    {
-//        outIns[i] = getWritePointer( tmpIns[!iIn][i] );
-//        for ( int j ( 0 ); j < 5; j++ )
-//        {
-//            outIds[i][j] = getWritePointer( tmpIds[!iIn][i][j] );
-//        }
+//        inIds[j] = getReadPointer( tmpIds[iIn][i][j], false );
 //    }
 //}
 
-void PreprocessFiles::setCyclerIter( FILE* &inIns, FILE* (&inIds)[5], uint8_t cycle, uint8_t i )
+void PreprocessFiles::setCyclerIter( FILE* &inIns, TransFileLarge (&inIds)[5], uint8_t cycle, uint8_t i )
 {
     uint8_t iIn = cycle & 1;
     
     inIns = getReadPointer( tmpIns[iIn][i], false );
     for ( int j ( 0 ); j < 5; j++ )
     {
-        inIds[j] = getReadPointer( tmpIds[iIn][i][j], false );
+        inIds[j].set( tmpIds[iIn][i][j], true );
     }
 }
 
@@ -306,15 +317,39 @@ void PreprocessFiles::setCyclerFinal( FILE* &inBwt, FILE* &outBwt, FILE* &inEnd,
     outEnd = getWritePointer( ids );
 }
 
-void PreprocessFiles::setCyclerFinalIter( FILE* &inIns, FILE* &inIds, uint8_t cycle, uint8_t i )
+//void PreprocessFiles::setCyclerFinalIter( FILE* &inIns, FILE* &inIds, uint8_t cycle, uint8_t i )
+//{
+//    uint8_t iIn = cycle & 1;
+//    
+//    inIns = getReadPointer( tmpIns[iIn][i], false );
+//    inIds = getReadPointer( tmpIds[iIn][i][4], false );
+//}
+
+void PreprocessFiles::setCyclerFinalIter( FILE* &inIns, TransFileLarge &inIds, uint8_t cycle, uint8_t i )
 {
     uint8_t iIn = cycle & 1;
     
     inIns = getReadPointer( tmpIns[iIn][i], false );
-    inIds = getReadPointer( tmpIds[iIn][i][4], false );
+    inIds.set( tmpIds[iIn][i][4], true );
 }
 
-void PreprocessFiles::setCyclerUpdate( FILE* &outBwt, FILE* &outEnd, FILE* (&outIns)[4], FILE* (&outIds)[4][5], uint8_t cycle )
+//void PreprocessFiles::setCyclerUpdate( FILE* &outBwt, FILE* &outEnd, FILE* (&outIns)[4], FILE* (&outIds)[4][5], uint8_t cycle )
+//{
+//    uint8_t iIn = cycle & 1;
+//    
+//    outBwt = getReadPointer( tmpBwt[!iIn], true );
+//    outEnd = getReadPointer( tmpEnd[!iIn], true );
+//    for ( int i ( 0 ); i < 4; i++ )
+//    {
+//        outIns[i] = getReadPointer( tmpIns[!iIn][i], true );
+//        for ( int j ( 0 ); j < 5; j++ )
+//        {
+//            outIds[i][j] = getReadPointer( tmpIds[!iIn][i][j], true );
+//        }
+//    }
+//}
+
+void PreprocessFiles::setCyclerUpdate( FILE* &outBwt, FILE* &outEnd, FILE* (&outIns)[4], uint8_t cycle )
 {
     uint8_t iIn = cycle & 1;
     
@@ -323,10 +358,6 @@ void PreprocessFiles::setCyclerUpdate( FILE* &outBwt, FILE* &outEnd, FILE* (&out
     for ( int i ( 0 ); i < 4; i++ )
     {
         outIns[i] = getReadPointer( tmpIns[!iIn][i], true );
-        for ( int j ( 0 ); j < 5; j++ )
-        {
-            outIds[i][j] = getReadPointer( tmpIds[!iIn][i][j], true );
-        }
     }
 }
 

@@ -51,7 +51,8 @@ Index::Index( Arguments& args )
     }
     else
     {
-        cout << "Index files already exist. Proceeding..." << endl;
+        for ( string& fn : args.input_ ) cout << "Loading sequence data file: " << fn << endl;
+        cout << "Index files already exist. Proceeding..." << endl << endl;
     }
     
     delete fns;

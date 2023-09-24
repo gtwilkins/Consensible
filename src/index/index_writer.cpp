@@ -250,13 +250,13 @@ void IndexWriter::writeIndex()
     
     fwrite( marks, 4, markCount, idx );
     
-    cout << endl << "Indexing transformed data... completed!" << endl;
-    cout << "Summary:" << endl;
-    cout << "Indexed " << to_string( bwtSize ) << " BWT entries" << endl;
-    cout << "Comprising " << to_string( counts[0] + counts[1] + counts[2] + counts[3] ) 
-            << " sequence characters from " << to_string( counts[4] / 2 ) << " sequence reads " << endl;
-    cout << "Created " << to_string( indexCount ) << " index points" << endl;
-    cout << "Time taken: " << getDuration( indexStartTime ) << endl;
+//    cout << endl << "Indexing transformed data... completed!" << endl;
+//    cout << "Summary:" << endl;
+//    cout << "Indexed " << to_string( bwtSize ) << " BWT entries" << endl;
+//    cout << "Comprising " << to_string( counts[0] + counts[1] + counts[2] + counts[3] ) 
+//            << " sequence characters from " << to_string( counts[4] / 2 ) << " sequence reads " << endl;
+//    cout << "Created " << to_string( indexCount ) << " index points" << endl;
+//    cout << "Time taken: " << getDuration( indexStartTime ) << endl;
 }
 
 void IndexWriter::writeMers( PreprocessFiles* fns )

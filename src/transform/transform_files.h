@@ -18,24 +18,49 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TRANSFORM_STRUCTS_H
-#define TRANSFORM_STRUCTS_H
+#ifndef TRANSFORM_FILES_H
+#define TRANSFORM_FILES_H
 
 #include "types.h"
-#include "constants.h"
 #include "transform_constants.h"
 #include <fstream>
 
-struct ReadFile
+struct TransformFile
 {
-    ReadFile( string filename, int baseReadLen, int minScore );
-    bool getNext( string &seq );
-    void setReadLen();
-    void trimSeq( string &seq );
-    ifstream fh;
-    string fn, line;
-    uint8_t fileType, readLen, minPhred;
+    TransformFile(): fp_( NULL ), pos_( 0 ), p_( 0 ), open_( false ){};
+    void checkFile( string mode );
+    void open();
+    void close();
+//    virtual void read();
+//    virtual void write();
+    std::string fn_;
+    FILE* fp_;
+    uint64_t pos_;
+    uint32_t p_, buffSize_, totalSize_, curSize_;
+    size_t bytes_;
+    bool read_, open_;
 };
 
-#endif /* TRANSFORM_STRUCTS_H */
+//struct TransFileSmall : TransformFile
+//{
+//    void set();
+//    void read();
+//    void write();
+//    uint8_t* buff_;
+//};
+
+struct TransFileLarge : TransformFile
+{
+    TransFileLarge():TransformFile(), buff_( NULL ){ buffSize_ = 64*1024; bytes_ = 4; };
+    ~TransFileLarge();
+    void flush();
+    void set( string fn, bool reader );
+    void read();
+    void write();
+    uint32_t readNext();
+    void writeNext( uint32_t b );
+    uint32_t* buff_;
+};
+
+#endif /* TRANSFORM_FILES_H */
 

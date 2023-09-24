@@ -174,6 +174,8 @@ bool Arguments::setBwtPrefix()
     input_.clear();
     if ( inputs_.empty() ) finished_ = true;
     
+    if ( pInput_ ) cout << endl;
+    
     if ( pInput_ < inputs_.size() )
     {
         outPrefix_ = outputs_[pInput_];

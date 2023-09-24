@@ -22,6 +22,7 @@
 #define FILENAMES_H
 
 #include "types.h"
+#include "transform_files.h"
 #include <fstream>
 
 struct Filenames
@@ -56,11 +57,15 @@ struct PreprocessFiles : public Filenames
     void clean();
     void getState( bool& isComplete, bool& canResume, bool& isIndexed );
     void setBinaryWrite( FILE* &outBin, FILE* &outBwt, FILE* &outEnd, FILE* (&outIns)[4], FILE* (&outIds)[4][5] );
-    void setCycler( FILE* &inBwt, FILE* &outBwt, FILE* &inEnd, FILE* &outEnd, FILE* (&outIns)[4], FILE* (&outIds)[4][5], uint8_t cycle );
-    void setCyclerIter( FILE* &inIns, FILE* (&inIds)[5], uint8_t cycle, uint8_t i );
+//    void setCycler( FILE* &inBwt, FILE* &outBwt, FILE* &inEnd, FILE* &outEnd, FILE* (&outIns)[4], FILE* (&outIds)[4][5], uint8_t cycle );
+    void setCycler( FILE* &inBwt, FILE* &outBwt, FILE* &inEnd, FILE* &outEnd, FILE* (&outIns)[4], TransFileLarge (&outIds)[4][5], uint8_t cycle );
+//    void setCyclerIter( FILE* &inIns, FILE* (&inIds)[5], uint8_t cycle, uint8_t i );
+    void setCyclerIter( FILE* &inIns, TransFileLarge(&inIds)[5], uint8_t cycle, uint8_t i );
     void setCyclerFinal( FILE* &inBwt, FILE* &outBwt, FILE* &inEnd, FILE* &outEnd, uint8_t cycle );
-    void setCyclerFinalIter( FILE* &inIns, FILE* &inIds, uint8_t cycle, uint8_t i );
-    void setCyclerUpdate( FILE* &outBwt,  FILE* &outEnd, FILE* (&outIns)[4], FILE* (&outIds)[4][5], uint8_t cycle );
+//    void setCyclerFinalIter( FILE* &inIns, FILE* &inIds, uint8_t cycle, uint8_t i );
+    void setCyclerFinalIter( FILE* &inIns, TransFileLarge &inIds, uint8_t cycle, uint8_t i );
+//    void setCyclerUpdate( FILE* &outBwt,  FILE* &outEnd, FILE* (&outIns)[4], FILE* (&outIds)[4][5], uint8_t cycle );
+    void setCyclerUpdate( FILE* &outBwt,  FILE* &outEnd, FILE* (&outIns)[4], uint8_t cycle );
     void setIndexWrite( FILE* &inBwt, FILE* &outIdx );
     void setMersWrite( FILE* &outMer );
     

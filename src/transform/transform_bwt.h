@@ -25,6 +25,7 @@
 #include "filenames.h"
 #include "transform_constants.h"
 #include "transform_functions.h"
+#include "transform_files.h"
 
 struct BwtCycler
 {
@@ -42,7 +43,6 @@ private:
     void prepIter();
     void prepOut();
     void prepOutFinal();
-    void readIds();
     void readBwtIn();
     void readInsertBuff();
     void readNextId();
@@ -52,7 +52,6 @@ private:
     void runIter( uint8_t i );
     void setReadEnds();
     void setWriteEnds();
-    void writeIdsToFile( uint8_t i, uint8_t j );
     void writeBwt();
     void writeBwtByte( uint8_t c );
     void writeEnd();
@@ -69,7 +68,8 @@ private:
     PreprocessFiles* fns;
     FILE* inBwt,* outBwt;
     FILE* inIns,* outIns[4];
-    FILE* inIds[5],* outIds[4][5];
+//    FILE* inIds[5],* outIds[4][5]; //old
+    TransFileLarge inIds[5], outIds[4][5];
     FILE* inEnd,* outEnd;
 //    FILE* dupes;
     CharId id;
@@ -78,23 +78,24 @@ private:
     uint8_t* chars,* ends;
     uint8_t* inBwtBuff,* outBwtBuff;
     uint8_t* inInsBuff,* outInsBuff[4];
-    ReadId* inIdsBuff[5],* outIdsBuff[4][5];
+//    ReadId* inIdsBuff[5],* outIdsBuff[4][5]; //old
     ReadId* inEndBuff,* outEndBuff;
     
     // Buffer pointers
     ReadId pInBwt, pOutBwt;
     ReadId pInIns, pOutIns[4];
-    ReadId pInIds[5], pOutIds[4][5];
+//    ReadId pInIds[5], pOutIds[4][5]; //old
     ReadId pInEnd, pOutEnd;
     
     // Counts
     CharId bwtCount, bwtLeft;
     CharId charCounts[5], charSizes[5];
     CharId insLeft, lastIns[4], insCounts[4];
-    ReadId endLeft, idsLeft[5];
+//    ReadId endLeft, idsLeft[5]; //old
+    ReadId endLeft;
     ReadId inSapCount[5], outSapCount[5];
     ReadId endCount;
-    CharId idsCounts[4][5];
+//    CharId idsCounts[4][5]; //old
     
     uint64_t inSap8[5], outSap8[5];
     uint32_t inSap4[5], outSap4[5];

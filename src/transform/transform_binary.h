@@ -73,7 +73,7 @@ struct BinaryWriter
     
     // File pointers
     PreprocessFiles* fns;
-    FILE* bin,* bwt,* ends,* ins[4],* ids[4][5];
+    FILE* bin,* bwt,* ends,* ins[4];
     
     // Buffers
     uint8_t* binBuff;

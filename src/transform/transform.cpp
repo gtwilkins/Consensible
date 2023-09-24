@@ -37,8 +37,8 @@ void Transform::load( PreprocessFiles* fns, vector<string>& infilenames, bool re
     for ( string& ifn : infilenames ) infiles.push_back( new ReadFile( ifn, 0, minScore ) );
     for ( ReadFile* rf : infiles ) readLen = max( readLen, rf->readLen );
     
-    cout << "    Read length set to " << to_string( readLen ) << "." << endl;
-    cout << "    Min length set to " << to_string( minLen ) << "." << endl;
+//    cout << "    Read length set to " << to_string( readLen ) << "." << endl;
+//    cout << "    Min length set to " << to_string( minLen ) << "." << endl;
     
     ReadId readCount = 0, discardCount = 0;
     double readStartTime = clock();
@@ -47,6 +47,7 @@ void Transform::load( PreprocessFiles* fns, vector<string>& infilenames, bool re
     
     for ( ReadFile* rf : infiles )
     {
+        cout << "Reading sequence data file: " << rf->fn << endl;
         ReadId thisReadCount = 0, thisDiscardCount = 0;
         string read;
         while ( rf->getNext( read ) )
@@ -62,13 +63,15 @@ void Transform::load( PreprocessFiles* fns, vector<string>& infilenames, bool re
         cout << "    Found " << to_string( thisReadCount-discardCount ) << " useable reads in file, discarded " << to_string( discardCount ) << " short reads." << endl;
     }
     
+    cout << endl;
+    
     binWrite->close();
     delete binWrite;
 }
 
 void Transform::run( PreprocessFiles* fns )
 {
-    cout << "Preprocessing step 2 of 3: transforming sequence data..." << endl << endl;
+    cout << "Preprocessing sequence data... " << flush;
     
     BinaryReader* bin = new BinaryReader( fns );
     BwtCycler* cycler = new BwtCycler( fns );
@@ -78,26 +81,25 @@ void Transform::run( PreprocessFiles* fns )
     while ( bin->cycle < bin->readLen )
     {
         double cycleStart = clock();
-        cout << "    Cycle " << to_string( bin->cycle ) << " of " << to_string( bin->readLen ) << "... " << flush;
+//        cout << "    Cycle " << to_string( bin->cycle ) << " of " << to_string( bin->readLen ) << "... " << flush;
         
         bin->read();
         cycler->run( bin->chars, ( bin->anyEnds ? bin->ends : NULL ), bin->cycle );
         bin->update();
         
-        cout << " completed in " << getDuration( cycleStart ) << endl;
+//        cout << " completed in " << getDuration( cycleStart ) << endl;
     }
     
     double finalStart = clock();
-    cout << "    Cycle " << to_string( bin->cycle ) << " of " << to_string( bin->readLen ) << "... " << flush;
+//    cout << "    Cycle " << to_string( bin->cycle ) << " of " << to_string( bin->readLen ) << "... " << flush;
     cycler->finish( bin->cycle + 1 );
-    cout << " completed in " << getDuration( finalStart ) << endl;
+//    cout << " completed in " << getDuration( finalStart ) << endl;
     bin->finish();
     fns->clean();
     delete bin;
     delete cycler;
     
-    cout << endl << "Transforming sequence data... completed!" << endl;
-    cout << "Time taken: " << getDuration( totalStart );
+    cout << "Complete! Time taken: " << getDuration( totalStart ) << endl << endl;
 //    cout << "   " << std::fixed << std::setprecision(2) << ( clock() - totalStart ) / CLOCKS_PER_SEC << " vs " << ( ( std::chrono::high_resolution_clock::now() - t_start ).count() / 1000.0 ) / CLOCKS_PER_SEC << endl << endl;
-    cout << endl << endl;
+//    cout << endl;
 }

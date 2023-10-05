@@ -71,7 +71,9 @@ void Transform::load( PreprocessFiles* fns, vector<string>& infilenames, bool re
 
 void Transform::run( PreprocessFiles* fns )
 {
-    cout << "Preprocessing sequence data... " << flush;
+    bool verbose = true;
+    if ( verbose ) cout << "Preprocessing sequence data... " << endl;
+    else cout << "Preprocessing sequence data... " << flush;
     
     BinaryReader* bin = new BinaryReader( fns );
     BwtCycler* cycler = new BwtCycler( fns );
@@ -81,12 +83,14 @@ void Transform::run( PreprocessFiles* fns )
     while ( bin->cycle < bin->readLen )
     {
         double cycleStart = clock();
+        int cycle = bin->cycle;
 //        cout << "    Cycle " << to_string( bin->cycle ) << " of " << to_string( bin->readLen ) << "... " << flush;
         
         bin->read();
         cycler->run( bin->chars, ( bin->anyEnds ? bin->ends : NULL ), bin->cycle );
         bin->update();
         
+        if ( verbose ) cout << "    Cycle " << to_string( cycle ) << " of " << to_string( bin->readLen ) <<  " completed in " << getDuration( cycleStart ) << endl;
 //        cout << " completed in " << getDuration( cycleStart ) << endl;
     }
     
@@ -94,12 +98,14 @@ void Transform::run( PreprocessFiles* fns )
 //    cout << "    Cycle " << to_string( bin->cycle ) << " of " << to_string( bin->readLen ) << "... " << flush;
     cycler->finish( bin->cycle + 1 );
 //    cout << " completed in " << getDuration( finalStart ) << endl;
+    if ( verbose ) cout << "    Cycle " << to_string( bin->readLen ) << " of " << to_string( bin->readLen ) <<  " completed in " << getDuration( finalStart ) << endl;
     bin->finish();
     fns->clean();
     delete bin;
     delete cycler;
     
-    cout << "Complete! Time taken: " << getDuration( totalStart ) << endl << endl;
+    if ( verbose ) cout << "Proprecessing complete! Time taken: " << getDuration( totalStart ) << endl << endl;
+    else cout << "Complete! Time taken: " << getDuration( totalStart ) << endl << endl;
 //    cout << "   " << std::fixed << std::setprecision(2) << ( clock() - totalStart ) / CLOCKS_PER_SEC << " vs " << ( ( std::chrono::high_resolution_clock::now() - t_start ).count() / 1000.0 ) / CLOCKS_PER_SEC << endl << endl;
 //    cout << endl;
 }

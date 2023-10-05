@@ -22,6 +22,8 @@
 #include <iostream>
 #include <cassert>
 #include <sys/stat.h>
+#include <chrono>
+#include <thread>
 
 Filenames::Filenames( string inPrefix )
 : prefix( inPrefix )
@@ -50,7 +52,17 @@ FILE* Filenames::getReadPointer( string &filename, bool doEdit, bool allowFail )
     FILE* fp = fopen( filename.c_str(), ( doEdit ? "rb+" : "rb" ) );
     if ( fp == NULL && !allowFail )
     {
-        cerr << "Error opening file \"" << filename << "\"." << endl;
+        for ( int i = 0; i < 60; i++ )
+        {
+            this_thread::sleep_for(chrono::seconds(1));
+            fp = fopen( filename.c_str(), ( doEdit ? "rb+" : "rb" ) );
+            if ( fp != NULL )
+            {
+                cout << endl << "Initially failed to open \"" << filename << "\" for " << ( doEdit ? "editing" : "reading" ) << ", but succeeded after " << to_string( i+1 ) << " seconds." << endl;
+                return fp;
+            }
+        }
+        cerr << "Error opening file \"" << filename << "\" for " << ( doEdit ? "editing" : "reading" ) << "." << endl;
         exit( EXIT_FAILURE );
     }
     return fp;
@@ -61,7 +73,17 @@ FILE* Filenames::getWritePointer( string &filename )
     FILE* fp = fopen( filename.c_str(), "wb" );
     if ( fp == NULL )
     {
-        cerr << "Error opening file \"" << filename << "\"." << endl;
+        for ( int i = 0; i < 60; i++ )
+        {
+            this_thread::sleep_for(chrono::seconds(1));
+            fp = fopen( filename.c_str(), "wb" );
+            if ( fp != NULL )
+            {
+                cout << endl << "Initially failed to open \"" << filename << "\" for writing, but succeeded after " << to_string( i+1 ) << " seconds." << endl;
+                return fp;
+            }
+        }
+        cerr << "Error opening file \"" << filename << "\" for writing." << endl;
         exit( EXIT_FAILURE );
     }
     return fp;

@@ -20,11 +20,23 @@
 
 #include "transform_files.h"
 #include <iostream>
+#include <chrono>
+#include <thread>
 
 void TransformFile::checkFile( string mode )
 {
     if ( fp_ == NULL )
     {
+        for ( int i = 0; i < 60; i++ )
+        {
+            this_thread::sleep_for(chrono::seconds(1));
+            fp_ = fopen( fn_.c_str(), mode.c_str() );
+            if ( fp_ != NULL )
+            {
+                cout << endl << "Initially failed to open \"" << fn_ << "\" for " + mode + ", but succeeded after " << to_string( i+1 ) << " seconds." << endl;
+                return;
+            }
+        }
         if ( mode == "wb" ) cerr << "Error creating output file \"" << fn_ << "\" for writing." << endl;
         else if ( mode == "ab" ) cerr << "Error opening output file \"" << fn_ << "\" for appending." << endl;
         else if ( mode == "rb+" ) cerr << "Error opening output file \"" << fn_ << "\" for editing." << endl;

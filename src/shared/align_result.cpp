@@ -29,11 +29,60 @@ AlignResult::AlignResult()
     start_ = len_ = -1;
 }
 
+int AlignResult::end()
+{
+    return start_+len_;
+}
+
+AlignScore AlignResult::getScore( int hit, int miss, int gapOpen, int gapExt, int drxn )
+{
+    AlignScore score;
+    for ( int i = 0; i < size(); i++ )
+    {
+        int gap = 0;
+        for ( int d = 0; !gap && d < 2; d++ ) while ( gap+i < size() && s_[d][gap+i] == '-' ) gap++;
+        if ( gap )
+        {
+            if ( gap > 1 ) i += gap-1;
+            if ( gap && drxn != 2 && ( drxn ? i+1 == size() : i-gap == -1 ) ) continue;
+            score.miss_ += gap;
+            score.score_ -= gapOpen + ( gapExt * gap );
+        }
+        else if( s_[0][i] == s_[1][i] )
+        {
+            score.hit_++;
+            score.score_ += hit;
+        }
+        else
+        {
+            score.miss_++;
+            score.score_ -= miss;
+        }
+    }
+    return score;
+}
+
 int AlignResult::getSeqLen( int i )
 {
     int len = 0;
     for ( int j = 0; j < s_[i].size(); j++ ) if ( s_[i][j] != '-' ) len++;
     return len;
+}
+
+int AlignResult::isMatch( int i )
+{
+    return s_[0][i] != '-' && s_[0][i] == s_[1][i];
+}
+
+bool AlignResult::isValid( int i )
+{
+    return start_ <= i && i < start_+len_;
+}
+
+int AlignResult::size()
+{
+    assert( s_[0].size() == s_[1].size() );
+    return s_[0].size();
 }
 
 void AlignResult::trimFromEnd( int sIndex, int trimLen, bool drxn )

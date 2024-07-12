@@ -71,6 +71,7 @@ int main( int argc, char** argv )
             {
                 Index idx( arguments );
                 arguments.updateFileIndex();
+//                if ( i >= 23 ) Assemble ass( arguments );
                 Assemble ass( arguments );
                 i++;
             }

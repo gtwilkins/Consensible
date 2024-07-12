@@ -20,6 +20,8 @@
 
 #include "assemble.h"
 #include "filenames.h"
+#include "long_query.h"
+#include "bundle.h"
 #include "match_query.h"
 #include "parameters.h"
 #include "timer.h"
@@ -43,12 +45,13 @@ Assemble::Assemble( Arguments& args )
 :ir_( NULL ), qb_( NULL )
 {
     string ifn, ofn, header, seq;
-    int errors = 15;
+    int errors = 2;
     Filenames* fns = new Filenames( args.bwtPrefix_ );
     ir_ = new IndexReader( fns );
     qb_ = new QueryBinaries( fns );
     
     Result result;
+    int lrCount = 0, mqCount = 0;
     for ( string& ifn : args.queries_ )
     {
         SequenceFile file( ifn );
@@ -56,12 +59,30 @@ Assemble::Assemble( Arguments& args )
         int queryCount = 0;
         while ( file.getSeq( is ) )
         {
+            LongQuery lq( is.seq_, ir_, 40, 2 );
+            for ( LongResult* lr = lq.yield( qb_ ); lr; )
+            {
+                lrCount += lr->reads_.size();
+                vector<Bundle*> bundles = Bundle::bundle( is.seq_, lr );
+                delete lr;
+                lr = lq.yield( qb_ );
+            }
+//            LongResult lr = lq.yield( qb_ );
+//            while ( !lr.reads_.empty() )
+//            {
+//                cout << lr.reads_[0]->seq_ << endl;
+//                lrCount += lr.reads_.size();
+////                vector<Bundle*> bundles = Bundle::bundle( is.seq_, lr );
+//                lr = lq.yield( qb_ );
+//                cout << lr.reads_[0]->seq_ << endl;
+//            }
             Target* tar = result.addTarget( is.header_, is.seq_ );
-            for ( Read r : MatchQuery( is.seq_, ir_, errors ).yield( qb_ ) ) result.addMatch( tar, r.id_, r.seq_, r.coords_[0] );
+            for ( Read r : MatchQuery( is.seq_, ir_, errors ).yield( qb_ ) ) mqCount++;
+//            for ( Read r : MatchQuery( is.seq_, ir_, errors ).yield( qb_ ) ) result.addMatch( tar, r.id_, r.seq_, r.coords_[0] );
             queryCount++;
             break;
         }
-        cout << "Querying sequence data with " << to_string( queryCount ) << ( queryCount == 1 ? " query" : "queries") << " from: " << ifn << endl;
+//        cout << "Querying sequence data with " << to_string( queryCount ) << ( queryCount == 1 ? " query" : "queries") << " from: " << ifn << endl;
 //        ifstream ifs( ifn );
 //        while ( getSeq( ifs, header, seq ) )
 //        {
@@ -72,7 +93,8 @@ Assemble::Assemble( Arguments& args )
 //        break;
     }
 //    result.outputFullAlign( args.outPrefix_ );
-    result.assemble( args.outPrefix_ );
+//    result.assemble( args.outPrefix_ );
+    cout << mqCount << "," << lrCount << endl;
     delete fns;
 }
 

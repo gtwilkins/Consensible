@@ -9,6 +9,7 @@ SRCS =  \
 	arguments.cpp \
 	assemble.cpp \
 	bubble.cpp \
+	bundle.cpp \
 	consensible.cpp \
 	consensus.cpp \
 	consensus_kmers.cpp \
@@ -20,6 +21,7 @@ SRCS =  \
 	index_structs.cpp \
 	index_writer.cpp \
 	local_alignment.cpp \
+	long_query.cpp \
 	match.cpp \
 	match_query.cpp \
 	parameters.cpp \

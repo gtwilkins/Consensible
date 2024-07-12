@@ -27,10 +27,21 @@ struct SNPs;
 struct SNP;
 struct Bubble;
 
+struct AlignScore
+{
+    AlignScore(): hit_( 0 ), miss_( 0 ), score_( 0 ){};
+    int hit_, miss_, score_;
+};
+
 struct AlignResult
 {
     AlignResult();
+    int end();
     int getSeqLen( int i );
+    AlignScore getScore( int hit, int miss, int gapOpen, int gapExt, int drxn );
+    int isMatch( int i );
+    bool isValid( int i );
+    int size();
     void trimFromEnd( int sIndex, int trimLen, bool drxn );
     string s_[2];
     int start_, len_, lIgnore[2], rIgnore[2], score_;
